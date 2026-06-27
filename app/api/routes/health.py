@@ -1,9 +1,18 @@
 from fastapi import APIRouter
 
-router = APIRouter()
+router = APIRouter(tags=["Health"])
 
 
-@router.get("/health")
+@router.get(
+    "/health",
+    summary="Health Check",
+    description=(
+        "Report process availability. This endpoint does not call DeepSeek and "
+        "works even when no provider key is configured. The response must not "
+        "expose configuration values, model credentials, dependency versions, "
+        "or environment variables."
+    ),
+)
 async def health() -> dict[str, str]:
     """Report process availability without exposing configuration.
 
