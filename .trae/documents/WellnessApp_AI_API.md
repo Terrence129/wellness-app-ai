@@ -1,79 +1,79 @@
-# Wellness App AI — API 接口文档
+# Wellness App AI — API Documentation
 
-> **版本**: v0.1.0 | **Author**: 2692341798 | **更新日期**: 2026-06-27  
-> 本文档定义 SimpleWell AI 模块的全部 HTTP 接口契约，是 Android / Spring Boot / AI 三方的共享 API 规范。
-
----
-
-## 目录
-
-- [1. 概述](#1-概述)
-- [2. 通用约定](#2-通用约定)
-- [3. GET /health — 健康检查](#3-get-health--健康检查)
-- [4. POST /ai/chat — Wellness 聊天](#4-post-aichat--wellness-聊天)
-- [5. POST /ai/wellness-advice — 健康建议](#5-post-aiwellness-advice--健康建议)
-- [6. 统一错误格式](#6-统一错误格式)
-- [7. 错误码参考](#7-错误码参考)
-- [8. 请求校验规则汇总](#8-请求校验规则汇总)
+> **Version**: v0.1.0 | **Author**: 2692341798 | **Last Updated**: 2026-06-27  
+> This document defines the complete HTTP interface contract for the SimpleWell AI module. It is the shared API specification agreed upon by the Android, Spring Boot, and AI teams.
 
 ---
 
-## 1. 概述
+## Table of Contents
 
-`wellness-app-ai` 是 SimpleWell 的私有 AI 服务组件。它接收 Spring Boot 后端的内部 REST 请求，调用 DeepSeek 大模型，返回安全的 Wellness 聊天回复和个性化健康建议。
+- [1. Overview](#1-overview)
+- [2. General Conventions](#2-general-conventions)
+- [3. GET /health — Health Check](#3-get-health--health-check)
+- [4. POST /ai/chat — Wellness Chat](#4-post-aichat--wellness-chat)
+- [5. POST /ai/wellness-advice — Wellness Advice](#5-post-aiwellness-advice--wellness-advice)
+- [6. Unified Error Format](#6-unified-error-format)
+- [7. Error Code Reference](#7-error-code-reference)
+- [8. Request Validation Rules Summary](#8-request-validation-rules-summary)
 
-**集成架构**：
+---
+
+## 1. Overview
+
+`wellness-app-ai` is the private AI service component of SimpleWell. It receives internal REST requests from the Spring Boot backend, calls the DeepSeek large language model, and returns safe wellness chat replies and personalized wellness advice.
+
+**Integration architecture**:
 
 ```text
-Android App → Spring Boot Backend → FastAPI (本服务) → DeepSeek
+Android App → Spring Boot Backend → FastAPI (This Service) → DeepSeek
 ```
 
-- Android **禁止**直接调用 FastAPI
-- Spring Boot 负责认证、鉴权、持久化
-- 本服务需部署在私有网络中，不暴露公网入口
+- Android is **prohibited** from calling FastAPI directly
+- Spring Boot handles authentication, authorization, and persistence
+- This service must be deployed on a private network with no public internet exposure
 
-**Base URL**：`http://127.0.0.1:8000`（开发环境）
+**Base URL**: `http://127.0.0.1:8000` (development environment)
 
-**Swagger 文档**：启动服务后访问 `http://127.0.0.1:8000/docs`
+**Swagger Docs**: Start the service and visit `http://127.0.0.1:8000/docs`
 
 ---
 
-## 2. 通用约定
+## 2. General Conventions
 
-### 请求头
+### Request Headers
 
-| Header | 必填 | 说明 |
+| Header | Required | Description |
 |--------|------|------|
-| `Content-Type` | 是 | `application/json` |
-| `X-Request-ID` | 否 | 客户端请求追踪 ID。需为有效 UUID 格式，否则服务端生成新 ID |
+| `Content-Type` | Yes | `application/json` |
+| `X-Request-ID` | No | Client request tracing ID. Must be a valid UUID format, otherwise the server generates a new ID |
 
-### 响应头
+### Response Headers
 
-| Header | 说明 |
+| Header | Description |
 |--------|------|
-| `X-Request-ID` | 本次请求的追踪 ID |
+| `X-Request-ID` | Tracing ID for this request |
 | `Content-Type` | `application/json` |
 
-### 命名约定
+### Naming Conventions
 
-- 请求/响应 JSON 字段使用 **camelCase**（如 `userId`、`requestId`）
-- Pydantic 自动完成 `snake_case` ↔ `camelCase` 映射
-- 路由前缀统一为 `/ai/`
+- Request/response JSON fields use **camelCase** (e.g. `userId`, `requestId`)
+- Pydantic automatically handles `snake_case` ↔ `camelCase` mapping
+- Route prefix is uniformly `/ai/`
 
 ---
 
-## 3. GET /health — 健康检查
+## 3. GET /health — Health Check
 
-### 基本信息
+### Basic Information
 
-| 项 | 值 |
+| Item | Value |
 |----|-----|
-| 方法 | `GET` |
-| 路径 | `/health` |
-| 调用 DeepSeek | 否 |
-| 需要 API Key | 否 |
+| Method | `GET` |
+| Path | `/health` |
+| Calls DeepSeek | No |
+| Requires API Key | No |
 
-### 响应 `200 OK`
+### Response `200 OK`
 
 ```json
 {
@@ -82,26 +82,26 @@ Android App → Spring Boot Backend → FastAPI (本服务) → DeepSeek
 }
 ```
 
-### 说明
+### Notes
 
-- 仅确认 FastAPI 进程正在运行
-- 不暴露配置值、模型凭据、依赖版本或环境变量
-- 无 API Key 时仍可正常返回 200
+- Only confirms that the FastAPI process is running
+- Does not expose configuration values, model credentials, dependency versions, or environment variables
+- Returns 200 normally even without an API key
 
 ---
 
-## 4. POST /ai/chat — Wellness 聊天
+## 4. POST /ai/chat — Wellness Chat
 
-### 基本信息
+### Basic Information
 
-| 项 | 值 |
+| Item | Value |
 |----|-----|
-| 方法 | `POST` |
-| 路径 | `/ai/chat` |
-| 调用 DeepSeek | 是（除非命中安全策略） |
-| 需要 API Key | 是（无 Key 返回 503） |
+| Method | `POST` |
+| Path | `/ai/chat` |
+| Calls DeepSeek | Yes (unless safety policy is triggered) |
+| Requires API Key | Yes (returns 503 without a key) |
 
-### 请求体
+### Request Body
 
 ```json
 {
@@ -120,24 +120,24 @@ Android App → Spring Boot Backend → FastAPI (本服务) → DeepSeek
 }
 ```
 
-### 字段说明
+### Field Descriptions
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |------|------|------|------|
-| `userId` | integer | 是 | 用户 ID，正整数。**不发送给 DeepSeek**，仅供 Spring Boot 追踪 |
-| `message` | string | 是 | 当前用户消息，1-2000 字符（去除前后空白后） |
-| `history` | array | 否 | 对话历史，最多 12 条 |
-| `history[].role` | string | 是 | 角色，仅限 `"user"` 或 `"assistant"` |
-| `history[].content` | string | 是 | 历史消息内容，1-4000 字符 |
+| `userId` | integer | Yes | User ID, positive integer. **Not sent to DeepSeek** — for Spring Boot tracing only |
+| `message` | string | Yes | Current user message, 1-2000 characters (after stripping whitespace) |
+| `history` | array | No | Conversation history, max 12 entries |
+| `history[].role` | string | Yes | Role, limited to `"user"` or `"assistant"` |
+| `history[].content` | string | Yes | History message content, 1-4000 characters |
 
-**聚合约束**：`message` + 所有 `history[].content` 总长度 ≤ 20,000 字符。
+**Aggregate constraint**: `message` + all `history[].content` total length ≤ 20,000 characters.
 
-### 调用方禁止提供的字段
+### Fields Prohibited for Callers
 
-- `role`: `"system"` 或 `"tool"` — 校验拒绝
-- 不得尝试注入 system prompt、function call 或 tool 消息
+- `role`: `"system"` or `"tool"` — rejected by validation
+- Do not attempt to inject system prompts, function calls, or tool messages
 
-### 响应 `200 OK`
+### Response `200 OK`
 
 ```json
 {
@@ -146,31 +146,31 @@ Android App → Spring Boot Backend → FastAPI (本服务) → DeepSeek
 }
 ```
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |------|------|------|
-| `reply` | string | AI 生成的 Wellness 回复，至少 1 字符 |
-| `requestId` | string | 与响应头 `X-Request-ID` 一致的追踪 ID |
+| `reply` | string | AI-generated wellness reply, at least 1 character |
+| `requestId` | string | Tracing ID, consistent with the `X-Request-ID` response header |
 
-### 安全行为
+### Safety Behavior
 
-1. **首先执行确定性危机检测**：匹配 6 个关键词 (`kill myself`, `suicide`, `self-harm`, `cannot breathe`, `chest pain`, `overdose`)，不区分大小写
-2. 命中后返回 **固定升级消息**，**不调用 DeepSeek**
-3. DeepSeek 无状态：Spring Boot 负责对话持久化，每次请求提交有界历史
+1. **Deterministic crisis detection runs first**: Matches 6 keywords (`kill myself`, `suicide`, `self-harm`, `cannot breathe`, `chest pain`, `overdose`), case-insensitive
+2. On match, returns a **fixed escalation message** and **does not call DeepSeek**
+3. DeepSeek is stateless: Spring Boot handles conversation persistence and submits a bounded history with each request
 
 ---
 
-## 5. POST /ai/wellness-advice — 健康建议
+## 5. POST /ai/wellness-advice — Wellness Advice
 
-### 基本信息
+### Basic Information
 
-| 项 | 值 |
+| Item | Value |
 |----|-----|
-| 方法 | `POST` |
-| 路径 | `/ai/wellness-advice` |
-| 调用 DeepSeek | 有数据时是，空日志时否 |
-| 需要 API Key | 有数据时需要（无 Key 返回 503），空日志不需要 |
+| Method | `POST` |
+| Path | `/ai/wellness-advice` |
+| Calls DeepSeek | Yes when data is present, No when logs are empty |
+| Requires API Key | Required when data is present (returns 503 without a key), not required for empty logs |
 
-### 请求体 — 空日志
+### Request Body — Empty Logs
 
 ```json
 {
@@ -179,7 +179,7 @@ Android App → Spring Boot Backend → FastAPI (本服务) → DeepSeek
 }
 ```
 
-### 请求体 — 有数据
+### Request Body — With Data
 
 ```json
 {
@@ -198,25 +198,25 @@ Android App → Spring Boot Backend → FastAPI (本服务) → DeepSeek
 }
 ```
 
-### 字段说明
+### Field Descriptions
 
-| 字段 | 类型 | 必填 | 约束 | 说明 |
+| Field | Type | Required | Constraints | Description |
 |------|------|------|------|------|
-| `userId` | integer | 是 | 正整数 | 用户 ID，**不发送给 DeepSeek** |
-| `logs` | array | 否 | 最多 31 条 | 每日健康日志 |
-| `logs[].logDate` | string | 是 | ISO 8601 完整日期 (YYYY-MM-DD) | 日志日期 |
-| `logs[].sleepHours` | number | 否 | 0 - 24 | 睡眠时长（小时） |
-| `logs[].moodScore` | integer | 否 | 1 - 5 | 心情评分 |
-| `logs[].waterCups` | integer | 否 | ≥ 0 | 饮水杯数 |
-| `logs[].steps` | integer | 否 | ≥ 0 | 步数 |
-| `logs[].exerciseMinutes` | integer | 否 | 0 - 1440 | 运动时长（分钟） |
-| `logs[].note` | string | 否 | ≤ 1000 字符 | 用户备注 |
+| `userId` | integer | Yes | Positive integer | User ID, **not sent to DeepSeek** |
+| `logs` | array | No | Max 31 entries | Daily wellness logs |
+| `logs[].logDate` | string | Yes | ISO 8601 full date (YYYY-MM-DD) | Log date |
+| `logs[].sleepHours` | number | No | 0 - 24 | Sleep duration (hours) |
+| `logs[].moodScore` | integer | No | 1 - 5 | Mood rating |
+| `logs[].waterCups` | integer | No | ≥ 0 | Cups of water |
+| `logs[].steps` | integer | No | ≥ 0 | Step count |
+| `logs[].exerciseMinutes` | integer | No | 0 - 1440 | Exercise duration (minutes) |
+| `logs[].note` | string | No | ≤ 1000 characters | User note |
 
-### 空日志行为（确定性路径）
+### Empty Logs Behavior (Deterministic Path)
 
-当 `logs` 为空时，服务**不调用 DeepSeek**，直接返回稳定固定文本。
+When `logs` is empty, the service **does not call DeepSeek** and directly returns a stable fixed text.
 
-### 响应 `200 OK` — 空日志
+### Response `200 OK` — Empty Logs
 
 ```json
 {
@@ -225,7 +225,7 @@ Android App → Spring Boot Backend → FastAPI (本服务) → DeepSeek
 }
 ```
 
-### 响应 `200 OK` — 有数据
+### Response `200 OK` — With Data
 
 ```json
 {
@@ -234,22 +234,22 @@ Android App → Spring Boot Backend → FastAPI (本服务) → DeepSeek
 }
 ```
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |------|------|------|
-| `adviceText` | string | AI 生成的个性化健康建议，至少 1 字符 |
-| `requestId` | string | 与响应头 `X-Request-ID` 一致的追踪 ID |
+| `adviceText` | string | AI-generated personalized wellness advice, at least 1 character |
+| `requestId` | string | Tracing ID, consistent with the `X-Request-ID` response header |
 
-### Provider 行为
+### Provider Behavior
 
-- DeepSeek 被指示返回仅含 `adviceText` 字段的 JSON
-- 服务拒绝空文本、截断、无效 JSON 或 Schema 不兼容的输出
-- JSON 输出无效时允许额外一次重新生成（不增加传输重试次数）
+- DeepSeek is instructed to return JSON containing only the `adviceText` field
+- The service rejects empty text, truncation, invalid JSON, or schema-incompatible output
+- Invalid JSON output allows one additional regeneration attempt (does not increase transport retry count)
 
 ---
 
-## 6. 统一错误格式
+## 6. Unified Error Format
 
-所有校验错误、Provider 错误及未预期异常均使用如下统一信封：
+All validation errors, provider errors, and unexpected exceptions use the following unified envelope:
 
 ```json
 {
@@ -260,77 +260,77 @@ Android App → Spring Boot Backend → FastAPI (本服务) → DeepSeek
 }
 ```
 
-### 消费方约定
+### Consumer Contract
 
-- **以 `errorCode` 为分支依据**，不要解析 `message` 文本
-- **保留 `requestId`** 供问题排查
-- `success` 始终为 `false`
+- **Branch on `errorCode`** — do not parse the `message` text
+- **Preserve `requestId`** for troubleshooting
+- `success` is always `false`
 
 ---
 
-## 7. 错误码参考
+## 7. Error Code Reference
 
-| HTTP | errorCode | 含义 | 重试 |
+| HTTP | errorCode | Meaning | Retry |
 |------|-----------|------|------|
-| 422 | `VALIDATION_ERROR` | 本地 Pydantic 请求校验失败 | 否 |
-| 429 | `AI_RATE_LIMITED` | DeepSeek 触发限流 | 是（最多 2 次） |
-| 502 | `AI_INVALID_RESPONSE` | Provider 返回空/截断/无效 JSON/不符合 Schema | 否* |
-| 502 | `AI_PROVIDER_REQUEST_REJECTED` | DeepSeek 拒绝请求 (400/422) | 否 |
-| 503 | `AI_PROVIDER_NOT_CONFIGURED` | `DEEPSEEK_API_KEY` 缺失 | 否 |
-| 503 | `AI_PROVIDER_AUTH_FAILED` | DeepSeek 鉴权失败 (401) | 否 |
-| 503 | `AI_PROVIDER_QUOTA_EXHAUSTED` | DeepSeek 配额耗尽 (402) | 否 |
-| 503 | `AI_PROVIDER_UNAVAILABLE` | DeepSeek 不可用 (500/503) 或连接失败 | 是（最多 2 次） |
-| 504 | `AI_PROVIDER_TIMEOUT` | Provider 超时未完成 | 是（最多 2 次） |
-| 500 | `INTERNAL_ERROR` | 未预期的应用错误，隐藏了实现细节 | 否 |
+| 422 | `VALIDATION_ERROR` | Local Pydantic request validation failure | No |
+| 429 | `AI_RATE_LIMITED` | DeepSeek rate limit triggered | Yes (max 2) |
+| 502 | `AI_INVALID_RESPONSE` | Provider returned empty/truncated/invalid JSON / schema mismatch | No* |
+| 502 | `AI_PROVIDER_REQUEST_REJECTED` | DeepSeek rejected the request (400/422) | No |
+| 503 | `AI_PROVIDER_NOT_CONFIGURED` | `DEEPSEEK_API_KEY` is missing | No |
+| 503 | `AI_PROVIDER_AUTH_FAILED` | DeepSeek authentication failed (401) | No |
+| 503 | `AI_PROVIDER_QUOTA_EXHAUSTED` | DeepSeek quota exhausted (402) | No |
+| 503 | `AI_PROVIDER_UNAVAILABLE` | DeepSeek unavailable (500/503) or connection failure | Yes (max 2) |
+| 504 | `AI_PROVIDER_TIMEOUT` | Provider timed out | Yes (max 2) |
+| 500 | `INTERNAL_ERROR` | Unexpected application error — implementation details hidden | No |
 
-> \* Advice JSON 输出在无效时会额外重生成一次（不是传输重试）
+> \* Advice JSON output regenrates once on invalid output (not a transport retry)
 
-### 重试策略
+### Retry Strategy
 
-| 触发条件 | 重试 | 策略 |
+| Trigger | Retry | Strategy |
 |----------|------|------|
-| 连接失败、超时 | 最多 2 次重试 | 指数退避 + 随机抖动 |
-| 429 (Rate Limited) | 最多 2 次重试 | 尊重 `Retry-After` 头 |
-| 500, 503 | 最多 2 次重试 | 指数退避 + 随机抖动 |
-| 400, 401, 402, 422 | 不重试 | 直接返回映射错误 |
+| Connection failure, timeout | Max 2 retries | Exponential backoff + random jitter |
+| 429 (Rate Limited) | Max 2 retries | Honor `Retry-After` header |
+| 500, 503 | Max 2 retries | Exponential backoff + random jitter |
+| 400, 401, 402, 422 | Do not retry | Return mapped error directly |
 
-- 总超时预算由 `DEEPSEEK_TIMEOUT_SECONDS` 控制（默认 30s，范围 1-120s）
-- `Retry-After` 延迟仅在总超时预算内被尊重
-- 不复用 SDK 内置重试（SDK 的 `max_retries` 设为 0）
+- Overall timeout budget controlled by `DEEPSEEK_TIMEOUT_SECONDS` (default 30s, range 1-120s)
+- `Retry-After` delay is honored only within the overall timeout budget
+- SDK built-in retries are disabled (SDK `max_retries` is set to 0)
 
 ---
 
-## 8. 请求校验规则汇总
+## 8. Request Validation Rules Summary
 
 ### Chat
 
-| 字段 | 规则 | 违反时返回 |
+| Field | Rule | Violation Response |
 |------|------|-----------|
-| `userId` | 正整数 (>0) | 422 `VALIDATION_ERROR` |
-| `message` | 1-2000 字符（strip 后） | 422 `VALIDATION_ERROR` |
-| `history` | 最多 12 条 | 422 `VALIDATION_ERROR` |
-| `history[].role` | 仅 `user` / `assistant` | 422 `VALIDATION_ERROR` |
-| `history[].content` | 1-4000 字符 | 422 `VALIDATION_ERROR` |
-| 聚合文本长度 | ≤ 20000 字符 | 422 `VALIDATION_ERROR` |
+| `userId` | Positive integer (>0) | 422 `VALIDATION_ERROR` |
+| `message` | 1-2000 characters (after strip) | 422 `VALIDATION_ERROR` |
+| `history` | Max 12 entries | 422 `VALIDATION_ERROR` |
+| `history[].role` | `user` / `assistant` only | 422 `VALIDATION_ERROR` |
+| `history[].content` | 1-4000 characters | 422 `VALIDATION_ERROR` |
+| Aggregate text length | ≤ 20000 characters | 422 `VALIDATION_ERROR` |
 
 ### Advice
 
-| 字段 | 规则 | 违反时返回 |
+| Field | Rule | Violation Response |
 |------|------|-----------|
-| `userId` | 正整数 (>0) | 422 `VALIDATION_ERROR` |
-| `logs` | 最多 31 条 | 422 `VALIDATION_ERROR` |
-| `logs[].logDate` | ISO 8601 完整日期 | 422 `VALIDATION_ERROR` |
-| `logs[].sleepHours` | 0-24（可选） | 422 `VALIDATION_ERROR` |
-| `logs[].moodScore` | 1-5 整数（可选） | 422 `VALIDATION_ERROR` |
-| `logs[].waterCups` | ≥ 0 整数（可选） | 422 `VALIDATION_ERROR` |
-| `logs[].steps` | ≥ 0 整数（可选） | 422 `VALIDATION_ERROR` |
-| `logs[].exerciseMinutes` | 0-1440 整数（可选） | 422 `VALIDATION_ERROR` |
-| `logs[].note` | ≤ 1000 字符（可选） | 422 `VALIDATION_ERROR` |
+| `userId` | Positive integer (>0) | 422 `VALIDATION_ERROR` |
+| `logs` | Max 31 entries | 422 `VALIDATION_ERROR` |
+| `logs[].logDate` | ISO 8601 full date | 422 `VALIDATION_ERROR` |
+| `logs[].sleepHours` | 0-24 (optional) | 422 `VALIDATION_ERROR` |
+| `logs[].moodScore` | 1-5 integer (optional) | 422 `VALIDATION_ERROR` |
+| `logs[].waterCups` | ≥ 0 integer (optional) | 422 `VALIDATION_ERROR` |
+| `logs[].steps` | ≥ 0 integer (optional) | 422 `VALIDATION_ERROR` |
+| `logs[].exerciseMinutes` | 0-1440 integer (optional) | 422 `VALIDATION_ERROR` |
+| `logs[].note` | ≤ 1000 characters (optional) | 422 `VALIDATION_ERROR` |
 
 ---
 
-## 变更记录
+## Change Log
 
-| 日期 | 版本 | 变更 |
+| Date | Version | Changes |
 |------|------|------|
-| 2026-06-27 | v0.1.0 | 初始版本：3 个端点、10 种错误码、完整校验规则 |
+| 2026-06-27 | v0.1.0 | Initial version: 3 endpoints, 10 error codes, complete validation rules |
