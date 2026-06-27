@@ -1,246 +1,246 @@
-# Wellness App AI — 产品需求文档 (PRD)
+# Wellness App AI — Product Requirements Document (PRD)
 
-> **版本**: v0.1.0 | **Author**: 2692341798 | **更新日期**: 2026-06-27  
-> 本文档定义 SimpleWell AI 模块的产品需求范围、核心功能和验收标准。
-
----
-
-## 目录
-
-- [1. 产品概述](#1-产品概述)
-- [2. 需求来源与优先级](#2-需求来源与优先级)
-- [3. 核心功能](#3-核心功能)
-- [4. 非功能性需求](#4-非功能性需求)
-- [5. 安全合规需求](#5-安全合规需求)
-- [6. 不在本版本的特性（延后）](#6-不在本版本的特性延后)
-- [7. 验收标准](#7-验收标准)
+> **Version**: v0.1.0 | **Author**: 2692341798 | **Last Updated**: 2026-06-27  
+> This document defines the product requirements scope, core features, and acceptance criteria for the SimpleWell AI module.
 
 ---
 
-## 1. 产品概述
+## Table of Contents
 
-### 1.1 产品名称
+- [1. Product Overview](#1-product-overview)
+- [2. Requirements Source and Priority](#2-requirements-source-and-priority)
+- [3. Core Features](#3-core-features)
+- [4. Non-Functional Requirements](#4-non-functional-requirements)
+- [5. Safety and Compliance Requirements](#5-safety-and-compliance-requirements)
+- [6. Out-of-Scope Features (Deferred)](#6-out-of-scope-features-deferred)
+- [7. Acceptance Criteria](#7-acceptance-criteria)
+
+---
+
+## 1. Product Overview
+
+### 1.1 Product Name
 
 **SimpleWell AI Module** (`wellness-app-ai`)
 
-### 1.2 产品定位
+### 1.2 Product Positioning
 
-SimpleWell 是一个移动端健康管理应用。AI 模块是其私有后端微服务组件，负责调用 DeepSeek 大模型，为终端用户提供：
+SimpleWell is a mobile health management application. The AI module is its private backend microservice component responsible for calling the DeepSeek large language model to provide end users with:
 
-- **通用 Wellness 聊天**：回答睡眠、饮食、运动、心理健康等日常健康问题
-- **个性化健康建议**：基于用户记录的健康日志数据（睡眠、心情、饮水、步数、运动）生成针对性建议
+- **General wellness chat**: Answer everyday health questions about sleep, diet, exercise, mental health, etc.
+- **Personalized wellness advice**: Generate targeted suggestions based on the user's recorded wellness log data (sleep, mood, water intake, steps, exercise)
 
-### 1.3 目标用户
+### 1.3 Target Users
 
-- **间接用户**：SimpleWell Android App 的终端用户（通过 Spring Boot 后端中转）
-- **直接调用方**：Spring Boot 后端
+- **Indirect users**: End users of the SimpleWell Android app (relayed through the Spring Boot backend)
+- **Direct caller**: Spring Boot backend
 
-### 1.4 技术架构定位
+### 1.4 Technical Architecture Positioning
 
 ```text
 Android App → Spring Boot → FastAPI AI Service → DeepSeek
 ```
 
-AI 模块是四层架构的第三层，对终端用户透明。
+The AI module is the third layer of the four-tier architecture, transparent to end users.
 
 ---
 
-## 2. 需求来源与优先级
+## 2. Requirements Source and Priority
 
-需求解析优先级（从高到低）：
+Requirement resolution priority (highest to lowest):
 
-1. `Mobile Application Development CA.pdf` 课程要求
-2. `wellness-app/Android Wellness App — Product & API Document.md` 产品文档
-3. Android / Spring Boot / AI 三方约定的共享 API 契约
-4. 现有源代码与示例
+1. `Mobile Application Development CA.pdf` course requirements
+2. `wellness-app/Android Wellness App — Product & API Document.md` product document
+3. Shared API contract agreed upon by the Android / Spring Boot / AI teams
+4. Existing source code and examples
 
 ---
 
-## 3. 核心功能
+## 3. Core Features
 
-### 3.1 Health Check — 健康检查
+### 3.1 Health Check
 
-| 属性 | 值 |
+| Attribute | Value |
 |------|-----|
-| 优先级 | P0 |
-| 端点 | `GET /health` |
-| 依赖 DeepSeek | 否 |
-| 需要 API Key | 否 |
+| Priority | P0 |
+| Endpoint | `GET /health` |
+| Depends on DeepSeek | No |
+| Requires API Key | No |
 
-**需求描述**：确认 FastAPI 进程正在运行。响应简单、稳定、不暴露配置信息。
+**Description**: Confirm the FastAPI process is running. Response is simple, stable, and does not expose configuration information.
 
-**验收标准**：
-- 无 API Key 时可正常返回 `200 OK`
-- 响应为 `{"status":"ok","service":"wellness-app-ai"}`
-- 每个响应包含 `X-Request-ID` 请求追踪头
+**Acceptance Criteria**:
+- Returns `200 OK` normally even without an API key
+- Response is `{"status":"ok","service":"wellness-app-ai"}`
+- Every response includes the `X-Request-ID` request tracing header
 
-### 3.2 Wellness Chat — 聊天
+### 3.2 Wellness Chat
 
-| 属性 | 值 |
+| Attribute | Value |
 |------|-----|
-| 优先级 | P0 |
-| 端点 | `POST /ai/chat` |
-| 依赖 DeepSeek | 是 |
-| 需要 API Key | 是 |
+| Priority | P0 |
+| Endpoint | `POST /ai/chat` |
+| Depends on DeepSeek | Yes |
+| Requires API Key | Yes |
 
-**需求描述**：Spring Boot 转发用户问题和有界对话历史，AI 服务返回 Wellness 相关的聊天回复。
+**Description**: Spring Boot forwards user questions and bounded conversation history; the AI service returns a wellness-related chat reply.
 
-**核心要求**：
-- 支持多轮对话历史（最多 12 条）
-- 回答范围限定为通用 Wellness（睡眠、饮食、运动、压力管理等）
-- 遇到危机语言时返回固定升级消息而不调用 DeepSeek
-- `userId` 不发送给 DeepSeek
-- 所有输入经过严格 Schema 校验
+**Core Requirements**:
+- Supports multi-turn conversation history (max 12 entries)
+- Response scope limited to general wellness (sleep, diet, exercise, stress management, etc.)
+- Returns a fixed escalation message on crisis language without calling DeepSeek
+- `userId` is not sent to DeepSeek
+- All input undergoes strict schema validation
 
-**验收标准**：
-- 正常对话返回 `200 OK`，含 `reply` 和 `requestId`
-- 危机语言命中后返回固定升级消息，不调用 Provider
-- 402/401/超时等异常返回对应错误码
-- 无 API Key 时返回 `503 AI_PROVIDER_NOT_CONFIGURED`
-- 聚合文本 > 20000 字符返回 `422 VALIDATION_ERROR`
+**Acceptance Criteria**:
+- Normal conversation returns `200 OK` with `reply` and `requestId`
+- Crisis language match returns fixed escalation message without calling the provider
+- 402/401/timeout etc. return corresponding error codes
+- Without an API key, returns `503 AI_PROVIDER_NOT_CONFIGURED`
+- Aggregate text > 20000 characters returns `422 VALIDATION_ERROR`
 
-### 3.3 Wellness Advice — 健康建议
+### 3.3 Wellness Advice
 
-| 属性 | 值 |
+| Attribute | Value |
 |------|-----|
-| 优先级 | P0 |
-| 端点 | `POST /ai/wellness-advice` |
-| 依赖 DeepSeek | 有数据时是，空日志时否 |
-| 需要 API Key | 有数据时需要 |
+| Priority | P0 |
+| Endpoint | `POST /ai/wellness-advice` |
+| Depends on DeepSeek | Yes when data is present, No when logs are empty |
+| Requires API Key | Required when data is present |
 
-**需求描述**：基于用户每日健康日志生成个性化建议。
+**Description**: Generates personalized advice based on the user's daily wellness logs.
 
-**核心要求**：
-- 空日志时走确定性路径，返回固定提示文本（不调用 DeepSeek，无需 API Key）
-- 有数据时调用 DeepSeek，要求严格 JSON 输出（仅含 `adviceText`）
-- 无效 JSON、截断、空内容被拒绝并映射为 `AI_INVALID_RESPONSE`
-- 无效 JSON 额外允许一次重新生成
+**Core Requirements**:
+- Empty logs follow a deterministic path, returning a fixed tip text (no DeepSeek call, no API key needed)
+- With data, calls DeepSeek requiring strict JSON output (only `adviceText`)
+- Invalid JSON, truncation, or empty content is rejected and mapped to `AI_INVALID_RESPONSE`
+- Invalid JSON allows one additional regeneration attempt
 
-**验收标准**：
-- 空日志返回 `200 OK`，文本为固定提示，不调用 Provider
-- 有数据的正常请求返回 `200 OK`，含 `adviceText` 和 `requestId`
-- 无效 Provider 响应返回 `502 AI_INVALID_RESPONSE`
-- 日志超过 31 条返回 `422 VALIDATION_ERROR`
-
----
-
-## 4. 非功能性需求
-
-### 4.1 性能
-
-| 指标 | 目标 |
-|------|------|
-| Chat 平均延迟 | < 5s（P95） |
-| Advice 平均延迟 | < 8s（P95） |
-| Health 响应时间 | < 50ms |
-| 并发支持 | 单进程 uvicorn，Spring Boot 控制并发 |
-
-### 4.2 可靠性
-
-| 指标 | 目标 |
-|------|------|
-| 重试策略 | 连接失败/超时/429/500/503 → 最多 2 次重试 |
-| 优雅降级 | 无 API Key 时仅 AI 端点不可用，`/health` 始终可用 |
-| 错误处理 | 所有异常映射为 10 种稳定错误码 |
-
-### 4.3 可观测性
-
-| 指标 | 要求 |
-|------|------|
-| Request ID | 每个请求生成/回显 UUID，透传至响应头和 Body |
-| 日志 | JSON 格式，白名单字段（event/request_id/method/path/status/latency_ms/model/retry_count/tokens） |
-| Token 用量 | 每次 Provider 调用记录 prompt_tokens 和 completion_tokens |
-
-### 4.4 可测试性
-
-| 要求 | 实现 |
-|------|------|
-| 离线测试 | 所有默认测试不发起网络请求（FakeLLMProvider + socket 阻断） |
-| Live 测试 | 可选的有 Key 的烟雾测试（`@pytest.mark.live`） |
-| 依赖注入 | Services/Provider 均可注入，支持测试替身 |
-
-### 4.5 部署
-
-- 必需 Python 3.11+
-- 仅通过 Spring Boot 可达的私有网络
-- 不得暴露公网入口
-- `.env` 排除在版本控制之外
+**Acceptance Criteria**:
+- Empty logs return `200 OK` with fixed tip text, no provider call
+- Normal request with data returns `200 OK` with `adviceText` and `requestId`
+- Invalid provider response returns `502 AI_INVALID_RESPONSE`
+- More than 31 log entries returns `422 VALIDATION_ERROR`
 
 ---
 
-## 5. 安全合规需求
+## 4. Non-Functional Requirements
 
-### 5.1 Wellness 安全
+### 4.1 Performance
 
-| 需求 | 实现 |
+| Metric | Target |
 |------|------|
-| 通用 Wellness 范围 | System Prompt + SafetyPolicy |
-| 不诊断、不处治 | System Prompt 明确边界 |
-| 危机升级 | 6 个关键词 → 固定升级消息，不调 LLM |
-| 用户输入不可信 | 用户文本不能覆盖 System Prompt |
+| Chat average latency | < 5s (P95) |
+| Advice average latency | < 8s (P95) |
+| Health response time | < 50ms |
+| Concurrency support | Single-process uvicorn, Spring Boot controls concurrency |
 
-### 5.2 数据隐私
+### 4.2 Reliability
 
-| 需求 | 实现 |
+| Metric | Target |
 |------|------|
-| 不发送用户身份到 DeepSeek | email/username/JWT/userId 全部排除 |
-| 不记录原始内容 | 日志白名单，仅允许结构化元数据 |
-| 密钥不外泄 | `.env.example` 不含真实 Key，`.gitignore` 排除 `.env` |
+| Retry strategy | Connection failure/timeout/429/500/503 → max 2 retries |
+| Graceful degradation | Without API key, only AI endpoints are unavailable; `/health` is always available |
+| Error handling | All exceptions mapped to 10 stable error codes |
+
+### 4.3 Observability
+
+| Metric | Requirement |
+|------|------|
+| Request ID | Each request generates/echoes a UUID, propagated to response headers and body |
+| Logging | JSON format, allowlisted fields (event/request_id/method/path/status/latency_ms/model/retry_count/tokens) |
+| Token usage | Record prompt_tokens and completion_tokens for each provider call |
+
+### 4.4 Testability
+
+| Requirement | Implementation |
+|------|------|
+| Offline tests | All default tests do not initiate network requests (FakeLLMProvider + socket blocking) |
+| Live tests | Optional keyed smoke tests (`@pytest.mark.live`) |
+| Dependency injection | Services/Provider are injectable, supporting test doubles |
+
+### 4.5 Deployment
+
+- Requires Python 3.11+
+- Private network reachable only by Spring Boot
+- Must not be exposed to the public internet
+- `.env` excluded from version control
 
 ---
 
-## 6. 不在本版本的特性（延后）
+## 5. Safety and Compliance Requirements
 
-| 特性 | 延后理由 |
+### 5.1 Wellness Safety
+
+| Requirement | Implementation |
+|------|------|
+| General wellness scope | System Prompt + SafetyPolicy |
+| No diagnosis, no treatment | System Prompt defines clear boundaries |
+| Crisis escalation | 6 keywords → fixed escalation message, no LLM call |
+| User input is untrusted | User text cannot override the System Prompt |
+
+### 5.2 Data Privacy
+
+| Requirement | Implementation |
+|------|------|
+| No user identity sent to DeepSeek | email/username/JWT/userId all excluded |
+| No raw content logged | Log allowlist, only structured metadata permitted |
+| No key leakage | `.env.example` contains no real key, `.gitignore` excludes `.env` |
+
+---
+
+## 6. Out-of-Scope Features (Deferred)
+
+| Feature | Reason for Deferral |
 |------|---------|
-| SSE 流式响应 | 首版优先稳定、可控的非流式响应 |
-| RAG + 知识库 | 超出课程 MVP 范围 |
-| Function Calling / Agent 工具 | 无批准用例 |
-| 定时推荐 | 由 Spring Boot 负责调度 |
-| 推荐与对话持久化 | 由 Spring Boot 的 MySQL 负责 |
-| 服务间认证 | 当前私有网络部署无需，后续统一设计 |
-| CORS 支持 | 浏览器/Android 不是合法直连消费者 |
-| API 版本化 (`/v1`) | 待与 Spring Boot 侧协商 |
+| SSE streaming responses | First version prioritizes stable, controllable non-streaming responses |
+| RAG + knowledge base | Outside course MVP scope |
+| Function Calling / Agent tools | No approved use case |
+| Scheduled recommendations | Handled by Spring Boot scheduling |
+| Recommendation and conversation persistence | Handled by Spring Boot's MySQL |
+| Service-to-service authentication | Not needed for current private network deployment; to be designed uniformly later |
+| CORS support | Browsers/Android are not legitimate direct consumers |
+| API versioning (`/v1`) | Pending negotiation with Spring Boot side |
 
 ---
 
-## 7. 验收标准
+## 7. Acceptance Criteria
 
-### 7.1 功能验收
+### 7.1 Functional Acceptance
 
-- [x] `GET /health` 无 Key 返回 `200 OK`
-- [x] `POST /ai/chat` 有 Key 返回正常回复
-- [x] `POST /ai/chat` 无 Key 返回 `503 AI_PROVIDER_NOT_CONFIGURED`
-- [x] `POST /ai/chat` 危机语言触发固定升级
-- [x] `POST /ai/wellness-advice` 空日志无 Key 返回 `200 OK`
-- [x] `POST /ai/wellness-advice` 有数据有 Key 返回建议
-- [x] `POST /ai/wellness-advice` 有数据无 Key 返回 `503`
-- [x] 所有校验失败返回 `422 VALIDATION_ERROR`
-- [x] 所有 Provider 异常映射为对应错误码
+- [x] `GET /health` returns `200 OK` without key
+- [x] `POST /ai/chat` returns normal reply with key
+- [x] `POST /ai/chat` returns `503 AI_PROVIDER_NOT_CONFIGURED` without key
+- [x] `POST /ai/chat` crisis language triggers fixed escalation
+- [x] `POST /ai/wellness-advice` empty logs returns `200 OK` without key
+- [x] `POST /ai/wellness-advice` with data and key returns advice
+- [x] `POST /ai/wellness-advice` with data without key returns `503`
+- [x] All validation failures return `422 VALIDATION_ERROR`
+- [x] All provider exceptions mapped to corresponding error codes
 
-### 7.2 质量验收
+### 7.2 Quality Acceptance
 
-- [x] ruff check：零问题
-- [x] mypy strict：零问题
-- [x] pytest：215 passed（离线）
-- [x] README 文档完整性测试通过
-- [x] AGENTS.md 仓库规则测试通过
+- [x] ruff check: zero issues
+- [x] mypy strict: zero issues
+- [x] pytest: 215 passed (offline)
+- [x] README documentation completeness tests passing
+- [x] AGENTS.md repository rules tests passing
 
-### 7.3 架构验收
+### 7.3 Architecture Acceptance
 
-- [x] 无 RAG / 向量数据库依赖
-- [x] 无 Agent 框架
-- [x] 无持久化代码
-- [x] 无调度器
-- [x] 无 CORS
-- [x] 无 `deepseek-chat` / `deepseek-reasoner` 别名
-- [x] 无 JWT 处理
-- [x] 单文件最大 344 行（< 500 行警戒线）
+- [x] No RAG / vector database dependencies
+- [x] No agent framework
+- [x] No persistence code
+- [x] No scheduler
+- [x] No CORS
+- [x] No `deepseek-chat` / `deepseek-reasoner` aliases
+- [x] No JWT handling
+- [x] Largest single file 344 lines (< 500 line warning threshold)
 
 ---
 
-## 变更记录
+## Change Log
 
-| 日期 | 版本 | 变更 |
+| Date | Version | Changes |
 |------|------|------|
-| 2026-06-27 | v0.1.0 | 初始版本，基于架构设计 Spec 和 12 个 Task 实现结果 |
+| 2026-06-27 | v0.1.0 | Initial version, based on architecture design spec and 12 task implementation results |

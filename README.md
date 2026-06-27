@@ -9,119 +9,119 @@
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License">
 </p>
 
-> **SimpleWell 小组作业 — AI 模块** | Author: 2692341798  
-> `wellness-app-ai` 是 SimpleWell 健康管理应用的私有 FastAPI AI 微服务。它提供健康检查、通用 Wellness 聊天、个性化健康建议，通过 DeepSeek 大模型生成内容。仅由 Spring Boot 后端内部调用，不直接面向前端或 Android。
+> **SimpleWell — AI Module** | Author: 2692341798  
+> `wellness-app-ai` is the private FastAPI AI microservice for the SimpleWell health management application. It provides health checks, general wellness chat, and personalized wellness advice, generating content via the DeepSeek large language model. It is called exclusively by the Spring Boot backend internally and is never exposed directly to the frontend or Android.
 
 ---
 
-## 目录
+## Table of Contents
 
-- [集成边界](#集成边界)
-- [技术栈](#技术栈)
-- [项目结构](#项目结构)
-- [快速开始](#快速开始)
-- [运行服务](#运行服务)
-- [API 接口](#api-接口)
-  - [GET /health — 健康检查](#get-health--健康检查)
-  - [POST /ai/chat — Wellness 聊天](#post-aichat--wellness-聊天)
-  - [POST /ai/wellness-advice — 健康建议](#post-aiwellness-advice--健康建议)
-- [统一错误格式](#统一错误格式)
-- [错误码参考](#错误码参考)
-- [安全设计](#安全设计)
-- [质量检查](#质量检查)
-- [工程文档](#工程文档)
+- [Integration Boundary](#integration-boundary)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Quick Start](#quick-start)
+- [Running the Service](#running-the-service)
+- [API Endpoints](#api-endpoints)
+  - [GET /health — Health Check](#get-health--health-check)
+  - [POST /ai/chat — Wellness Chat](#post-aichat--wellness-chat)
+  - [POST /ai/wellness-advice — Wellness Advice](#post-aiwellness-advice--wellness-advice)
+- [Unified Error Format](#unified-error-format)
+- [Error Code Reference](#error-code-reference)
+- [Safety Design](#safety-design)
+- [Quality Checks](#quality-checks)
+- [Engineering Documentation](#engineering-documentation)
 
 ---
 
-## 集成边界
+## Integration Boundary
 
 ```text
-┌──────────────┐     HTTPS + JWT     ┌──────────────────────┐     内部 REST      ┌─────────────────┐      HTTPS       ┌──────────┐
-│  Android App  │ ──────────────────▶ │  Spring Boot Backend │ ─────────────────▶ │  FastAPI (本服务) │ ───────────────▶ │ DeepSeek │
-└──────────────┘                     └──────────────────────┘                    └─────────────────┘                  └──────────┘
-  不直接调用本服务                          拥有登录/JWT/鉴权/持久化                          AI 生成服务                         大模型 API
+┌──────────────┐     HTTPS + JWT     ┌──────────────────────┐      Internal REST    ┌─────────────────┐      HTTPS       ┌──────────┐
+│  Android App  │ ──────────────────▶ │  Spring Boot Backend │ ───────────────────▶ │  FastAPI (This)  │ ───────────────▶ │ DeepSeek │
+└──────────────┘                     └──────────────────────┘                      └─────────────────┘                  └──────────┘
+  Does not call this service directly      Owns login/JWT/auth/persistence               AI generation service                  LLM API
 ```
 
-- **Android 禁止直接调用 FastAPI**。必须通过 Spring Boot 中转。
-- Spring Boot 负责：用户登录、JWT 创建与校验、用户鉴权、所有权检查、MySQL 持久化、聊天历史管理、定时推荐调度。
-- 本服务需部署在仅 Spring Boot 可达的私有网络中，**不得通过公网入口暴露**。
-- 因此以下所有 curl 示例均不含 JWT 或自创的服务认证头 — 它们是私有的后端间调用。
+- **Android must never call FastAPI directly**. All requests must go through Spring Boot.
+- Spring Boot is responsible for: user login, JWT creation and validation, user authentication, ownership checks, MySQL persistence, chat history management, and scheduled recommendation dispatch.
+- This service must be deployed on a private network reachable only by Spring Boot, **never exposed via a public internet entry point**.
+- Therefore, all curl examples below do not include JWT or custom service auth headers — they are private backend-to-backend calls.
 
-> 完整架构见 [`.trae/documents/WellnessApp_AI_Architecture.md`](.trae/documents/WellnessApp_AI_Architecture.md)
+> Full architecture: [`.trae/documents/WellnessApp_AI_Architecture.md`](.trae/documents/WellnessApp_AI_Architecture.md)
 
 ---
 
-## 技术栈
+## Tech Stack
 
-| 类别 | 技术 | 版本 |
+| Category | Technology | Version |
 |------|------|------|
-| 语言 | Python | ≥ 3.11 |
-| Web 框架 | FastAPI | ≥ 0.115 |
-| 数据验证 | Pydantic v2 | (内置于 FastAPI) |
-| LLM SDK | OpenAI Python SDK (适配 DeepSeek) | ≥ 1.68 |
-| 配置管理 | pydantic-settings | ≥ 2.8 |
-| 重试策略 | tenacity | ≥ 9 |
-| ASGI 服务器 | uvicorn | ≥ 0.34 |
-| 测试框架 | pytest + pytest-asyncio + HTTPX | — |
-| 代码质量 | ruff + mypy (strict) | — |
-| 包管理 | uv + hatchling | — |
+| Language | Python | ≥ 3.11 |
+| Web Framework | FastAPI | ≥ 0.115 |
+| Data Validation | Pydantic v2 | (bundled with FastAPI) |
+| LLM SDK | OpenAI Python SDK (adapted for DeepSeek) | ≥ 1.68 |
+| Config Management | pydantic-settings | ≥ 2.8 |
+| Retry Strategy | tenacity | ≥ 9 |
+| ASGI Server | uvicorn | ≥ 0.34 |
+| Test Framework | pytest + pytest-asyncio + HTTPX | — |
+| Code Quality | ruff + mypy (strict) | — |
+| Package Management | uv + hatchling | — |
 
 ---
 
-## 项目结构
+## Project Structure
 
 ```
 wellness-app-ai/
-├── app/                        # 应用源码
-│   ├── main.py                 # FastAPI 工厂、中间件、异常处理器
+├── app/                        # Application source
+│   ├── main.py                 # FastAPI factory, middleware, exception handlers
 │   ├── api/
-│   │   ├── dependencies.py     # 依赖注入（Settings/Provider/Service）
+│   │   ├── dependencies.py     # Dependency injection (Settings/Provider/Service)
 │   │   └── routes/
 │   │       ├── health.py       # GET /health
 │   │       ├── chat.py         # POST /ai/chat
 │   │       └── advice.py       # POST /ai/wellness-advice
-│   ├── core/                   # 基础设施
-│   │   ├── config.py           # 环境配置（Pydantic Settings）
-│   │   ├── exceptions.py       # 稳定错误码 + AppError（10 种）
-│   │   └── logging.py          # 隐私安全 JSON 日志 + Request ID
-│   ├── prompts/                # 版本化 System Prompt
-│   │   ├── chat.py             # Wellness Chat 提示词 v1
-│   │   └── advice.py           # Wellness Advice 提示词 v1
-│   ├── providers/              # LLM 适配层
-│   │   ├── base.py             # LLMProvider 异步协议
-│   │   └── deepseek.py         # DeepSeek 适配器（重试/错误映射/TOKEN 观测）
-│   ├── schemas/                # 请求/响应 Schema
-│   │   ├── common.py           # ErrorResponse 统一错误信封
+│   ├── core/                   # Infrastructure
+│   │   ├── config.py           # Environment config (Pydantic Settings)
+│   │   ├── exceptions.py       # Stable error codes + AppError (10 types)
+│   │   └── logging.py          # Privacy-safe JSON logging + Request ID
+│   ├── prompts/                # Versioned System Prompts
+│   │   ├── chat.py             # Wellness Chat prompt v1
+│   │   └── advice.py           # Wellness Advice prompt v1
+│   ├── providers/              # LLM adapter layer
+│   │   ├── base.py             # LLMProvider async protocol
+│   │   └── deepseek.py         # DeepSeek adapter (retry/error-mapping/token observability)
+│   ├── schemas/                # Request/Response schemas
+│   │   ├── common.py           # ErrorResponse unified error envelope
 │   │   ├── chat.py             # ChatRequest/ChatResponse
 │   │   └── advice.py           # AdviceRequest/AdviceResponse/WellnessLog
-│   └── services/               # 应用服务层
-│       ├── safety.py           # SafetyPolicy（确定性危机检测）
-│       ├── chat.py             # ChatService（编排安全+Provider）
-│       └── advice.py           # AdviceService（含空数据确定性路径）
-├── tests/                      # 测试（镜像生产结构）
-├── docs/superpowers/           # 设计文档与实现计划
-└── .trae/documents/            # 工程文档
+│   └── services/               # Application service layer
+│       ├── safety.py           # SafetyPolicy (deterministic crisis detection)
+│       ├── chat.py             # ChatService (orchestrates safety + Provider)
+│       └── advice.py           # AdviceService (includes deterministic no-data path)
+├── tests/                      # Tests (mirrors production structure)
+├── docs/superpowers/           # Design docs and implementation plans
+└── .trae/documents/            # Engineering documentation
 ```
 
 ---
 
-## 快速开始
+## Quick Start
 
-**前置要求**：Python 3.11+，推荐使用 [`uv`](https://docs.astral.sh/uv/)。
+**Prerequisites**: Python 3.11+, [`uv`](https://docs.astral.sh/uv/) recommended.
 
 ```bash
-# 1. 克隆仓库
+# 1. Clone the repository
 git clone https://github.com/Terrence129/wellness-app-ai.git
 cd wellness-app-ai
 
-# 2. 安装依赖
+# 2. Install dependencies
 uv sync --extra dev
 
-# 3. 配置环境（复制模板后编辑 .env 填入真实 DEEPSEEK_API_KEY）
+# 3. Configure environment (copy the template and edit .env to fill in your real DEEPSEEK_API_KEY)
 test -e .env || cp .env.example .env
 ```
 
-> **不使用 uv？** 用传统 pip 方式：
+> **Not using uv?** Use traditional pip:
 > ```bash
 > python -m venv .venv
 > source .venv/bin/activate
@@ -129,52 +129,52 @@ test -e .env || cp .env.example .env
 > test -e .env || cp .env.example .env
 > ```
 
-**环境变量说明**（`.env.example` 完整文档）：
+**Environment Variables** (fully documented in `.env.example`):
 
-| 变量 | 默认值 | 说明 |
+| Variable | Default | Description |
 |------|--------|------|
-| `APP_NAME` | `wellness-app-ai` | 应用名称 |
-| `APP_ENV` | `development` | 运行环境 |
-| `LOG_LEVEL` | `INFO` | 日志级别 |
-| `DEEPSEEK_API_KEY` | (空) | DeepSeek API 密钥。空值 = 未配置 |
-| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | API 地址 |
-| `DEEPSEEK_CHAT_MODEL` | `deepseek-v4-flash` | Chat 模型名 |
-| `DEEPSEEK_ADVICE_MODEL` | `deepseek-v4-flash` | Advice 模型名 |
-| `DEEPSEEK_AGENT_MODEL` | `deepseek-v4-pro` | Agent 模型名（预留） |
-| `DEEPSEEK_TIMEOUT_SECONDS` | `30` | 请求超时（1-120） |
-| `DEEPSEEK_MAX_RETRIES` | `2` | 最大重试次数（0-5） |
+| `APP_NAME` | `wellness-app-ai` | Application name |
+| `APP_ENV` | `development` | Runtime environment |
+| `LOG_LEVEL` | `INFO` | Log level |
+| `DEEPSEEK_API_KEY` | (empty) | DeepSeek API key. Empty = not configured |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | API base URL |
+| `DEEPSEEK_CHAT_MODEL` | `deepseek-v4-flash` | Chat model name |
+| `DEEPSEEK_ADVICE_MODEL` | `deepseek-v4-flash` | Advice model name |
+| `DEEPSEEK_AGENT_MODEL` | `deepseek-v4-pro` | Agent model name (reserved) |
+| `DEEPSEEK_TIMEOUT_SECONDS` | `30` | Request timeout (1-120) |
+| `DEEPSEEK_MAX_RETRIES` | `2` | Max retry attempts (0-5) |
 
-> **安全提醒**：真实 `DEEPSEEK_API_KEY` 仅放入未追踪的 `.env` 或进程环境变量中。**绝不提交密钥。**
+> **Security reminder**: The real `DEEPSEEK_API_KEY` belongs only in the untracked `.env` file or process environment variables. **Never commit keys.**
 
 ---
 
-## 运行服务
+## Running the Service
 
 ```bash
 uv run uvicorn app.main:app --reload
 ```
 
-服务默认地址：`http://127.0.0.1:8000`
+Default service address: `http://127.0.0.1:8000`
 
-### 无 API Key 的行为
+### Behavior Without an API Key
 
-允许不配置 `DEEPSEEK_API_KEY` 启动：
+Starting without `DEEPSEEK_API_KEY` is allowed:
 
-| 场景 | 行为 |
+| Scenario | Behavior |
 |------|------|
-| `GET /health` | **200 OK** — 无需 DeepSeek |
+| `GET /health` | **200 OK** — DeepSeek not needed |
 | `POST /ai/chat` | **503** — `AI_PROVIDER_NOT_CONFIGURED` |
-| `POST /ai/wellness-advice` (有数据) | **503** — `AI_PROVIDER_NOT_CONFIGURED` |
-| `POST /ai/wellness-advice` (空日志) | **200 OK** — 返回稳定提示文本，不调用 DeepSeek |
+| `POST /ai/wellness-advice` (with data) | **503** — `AI_PROVIDER_NOT_CONFIGURED` |
+| `POST /ai/wellness-advice` (empty logs) | **200 OK** — returns stable tip text, does not call DeepSeek |
 
 ---
 
-## API 接口
+## API Endpoints
 
-> 完整的接口规范见 [`.trae/documents/WellnessApp_AI_API.md`](.trae/documents/WellnessApp_AI_API.md)  
-> 启动服务后访问 `http://127.0.0.1:8000/docs` 可看到交互式 Swagger 文档。
+> Full API specification: [`.trae/documents/WellnessApp_AI_API.md`](.trae/documents/WellnessApp_AI_API.md)  
+> Start the service and visit `http://127.0.0.1:8000/docs` for interactive Swagger documentation.
 
-### GET /health — 健康检查
+### GET /health — Health Check
 
 ```bash
 curl http://localhost:8000/health
@@ -187,9 +187,9 @@ curl http://localhost:8000/health
 }
 ```
 
-### POST /ai/chat — Wellness 聊天
+### POST /ai/chat — Wellness Chat
 
-Spring Boot 转发用户问题和有界对话历史。DeepSeek 无状态，Spring Boot 负责对话持久化并每次请求提交有界历史。
+Spring Boot forwards user questions and a bounded conversation history. DeepSeek is stateless — Spring Boot handles conversation persistence and submits a bounded history with each request.
 
 ```bash
 curl -X POST http://localhost:8000/ai/chat \
@@ -204,16 +204,16 @@ curl -X POST http://localhost:8000/ai/chat \
   }'
 ```
 
-**请求校验**：
+**Request Validation**:
 
-| 字段 | 约束 |
+| Field | Constraint |
 |------|------|
-| `userId` | 正整数 |
-| `message` | 1-2000 字符（去除前后空白后） |
-| `history` | 最多 12 条 |
-| `history[].role` | 仅 `user` / `assistant` |
-| `history[].content` | 每条 1-4000 字符 |
-| 总长度 | `message` + 所有 `history[].content` ≤ 20000 字符 |
+| `userId` | Positive integer |
+| `message` | 1-2000 characters (after stripping whitespace) |
+| `history` | Max 12 entries |
+| `history[].role` | `user` / `assistant` only |
+| `history[].content` | 1-4000 characters per entry |
+| Aggregate length | `message` + all `history[].content` ≤ 20000 characters |
 
 ```json
 {
@@ -222,11 +222,11 @@ curl -X POST http://localhost:8000/ai/chat \
 }
 ```
 
-### POST /ai/wellness-advice — 健康建议
+### POST /ai/wellness-advice — Wellness Advice
 
-基于用户的健康日志数据生成个性化建议。
+Generates personalized advice based on the user's wellness log data.
 
-**空日志场景（确定性路径，不调用 DeepSeek）**：
+**Empty logs scenario (deterministic path, does not call DeepSeek)**:
 
 ```bash
 curl -X POST http://localhost:8000/ai/wellness-advice \
@@ -241,7 +241,7 @@ curl -X POST http://localhost:8000/ai/wellness-advice \
 }
 ```
 
-**有数据场景**：
+**With data scenario**:
 
 ```bash
 curl -X POST http://localhost:8000/ai/wellness-advice \
@@ -269,25 +269,25 @@ curl -X POST http://localhost:8000/ai/wellness-advice \
 }
 ```
 
-**请求校验**：
+**Request Validation**:
 
-| 字段 | 约束 |
+| Field | Constraint |
 |------|------|
-| `userId` | 正整数 |
-| `logs` | 最多 31 条 |
-| `logDate` | ISO 8601 完整日期 (YYYY-MM-DD) |
-| `sleepHours` | 0 - 24（可选） |
-| `moodScore` | 1 - 5（可选） |
-| `waterCups` | ≥ 0（可选） |
-| `steps` | ≥ 0（可选） |
-| `exerciseMinutes` | 0 - 1440（可选） |
-| `note` | 最多 1000 字符（可选） |
+| `userId` | Positive integer |
+| `logs` | Max 31 entries |
+| `logDate` | ISO 8601 full date (YYYY-MM-DD) |
+| `sleepHours` | 0 - 24 (optional) |
+| `moodScore` | 1 - 5 (optional) |
+| `waterCups` | ≥ 0 (optional) |
+| `steps` | ≥ 0 (optional) |
+| `exerciseMinutes` | 0 - 1440 (optional) |
+| `note` | Max 1000 characters (optional) |
 
 ---
 
-## 统一错误格式
+## Unified Error Format
 
-所有校验错误、Provider 错误和未预期异常均使用统一信封：
+All validation errors, provider errors, and unexpected exceptions use a unified envelope:
 
 ```json
 {
@@ -298,49 +298,49 @@ curl -X POST http://localhost:8000/ai/wellness-advice \
 }
 ```
 
-**消费方约定**：以 `errorCode` 为分支依据，`requestId` 供排查保留，**不解析 `message` 文本**。
+**Consumer contract**: Branch on `errorCode`. Preserve `requestId` for troubleshooting. **Do not parse the `message` text.**
 
 ---
 
-## 错误码参考
+## Error Code Reference
 
-| HTTP | errorCode | 含义 |
+| HTTP | errorCode | Meaning |
 |------|-----------|------|
-| 422 | `VALIDATION_ERROR` | 本地 Pydantic 请求校验失败 |
-| 429 | `AI_RATE_LIMITED` | DeepSeek 触发限流 |
-| 502 | `AI_INVALID_RESPONSE` | Provider 返回空/截断/无效 JSON/不符合 Schema |
-| 502 | `AI_PROVIDER_REQUEST_REJECTED` | DeepSeek 拒绝请求（400 或 422） |
-| 503 | `AI_PROVIDER_NOT_CONFIGURED` | `DEEPSEEK_API_KEY` 缺失 |
-| 503 | `AI_PROVIDER_AUTH_FAILED` | DeepSeek 鉴权失败（401） |
-| 503 | `AI_PROVIDER_QUOTA_EXHAUSTED` | DeepSeek 配额耗尽（402） |
-| 503 | `AI_PROVIDER_UNAVAILABLE` | DeepSeek 不可用（500/503）或连接失败 |
-| 504 | `AI_PROVIDER_TIMEOUT` | Provider 超时未完成 |
-| 500 | `INTERNAL_ERROR` | 未预期的应用程序错误 |
+| 422 | `VALIDATION_ERROR` | Local Pydantic request validation failure |
+| 429 | `AI_RATE_LIMITED` | DeepSeek rate limit triggered |
+| 502 | `AI_INVALID_RESPONSE` | Provider returned empty/truncated/invalid JSON / schema mismatch |
+| 502 | `AI_PROVIDER_REQUEST_REJECTED` | DeepSeek rejected the request (400 or 422) |
+| 503 | `AI_PROVIDER_NOT_CONFIGURED` | `DEEPSEEK_API_KEY` is missing |
+| 503 | `AI_PROVIDER_AUTH_FAILED` | DeepSeek authentication failed (401) |
+| 503 | `AI_PROVIDER_QUOTA_EXHAUSTED` | DeepSeek quota exhausted (402) |
+| 503 | `AI_PROVIDER_UNAVAILABLE` | DeepSeek unavailable (500/503) or connection failure |
+| 504 | `AI_PROVIDER_TIMEOUT` | Provider timed out |
+| 500 | `INTERNAL_ERROR` | Unexpected application error |
 
-**重试策略**：
-- 仅对连接失败、超时、429、500、503 进行重试
-- 指数退避 + 随机抖动，最多重试 2 次（共 3 次尝试）
-- 尊重上游 `Retry-After` 延迟（在总超时预算内）
-- 不重试 400 / 401 / 402 / 422
-- Advice JSON 输出无效时额外允许一次重新生成
-
----
-
-## 安全设计
-
-本服务遵循 **通用 Wellness 范围**，不提供医疗诊断：
-
-- **不诊断**疾病，**不声称**医学确定性，**不处方**药物，**不提供**剂量建议
-- **确定性危机升级**：在调用 Provider 前，匹配 6 个关键词 (`kill myself` / `suicide` / `self-harm` / `cannot breathe` / `chest pain` / `overdose`)，命中后返回固定升级消息，**不调用 DeepSeek**
-- 用户文本和健康笔记被视为**不可信输入**，不能覆盖系统安全策略
-- **不向 DeepSeek 发送**：邮箱、用户名、JWT、密码、`userId` 及其他身份数据
-- **日志中不记录**：原始消息、历史、提示词、生成内容、健康笔记、密钥、凭据
+**Retry strategy**:
+- Retry only on: connection failure, timeout, 429, 500, 503
+- Exponential backoff + random jitter, max 2 retries (3 total attempts)
+- Honor upstream `Retry-After` delay (within the overall timeout budget)
+- Do not retry: 400 / 401 / 402 / 422
+- Advice JSON output invalid → one additional regeneration attempt allowed
 
 ---
 
-## 质量检查
+## Safety Design
 
-默认测试套件是**确定性、离线**的，不消耗任何 Provider Token：
+This service operates within a **general wellness scope** and does not provide medical diagnosis:
+
+- **Does not diagnose** illness, **does not claim** medical certainty, **does not prescribe** medication, **does not provide** dosage recommendations
+- **Deterministic crisis escalation**: Before calling the provider, matches 6 keywords (`kill myself` / `suicide` / `self-harm` / `cannot breathe` / `chest pain` / `overdose`); on match, returns a fixed escalation message and **does not call DeepSeek**
+- User text and wellness notes are treated as **untrusted input** and cannot override the system safety policy
+- **Never sent to DeepSeek**: email, username, JWT, password, `userId`, or other identity data
+- **Never logged**: raw messages, history, prompts, generated content, wellness notes, keys, credentials
+
+---
+
+## Quality Checks
+
+The default test suite is **deterministic and offline**, consuming zero provider tokens:
 
 ```bash
 uv run ruff check .
@@ -348,27 +348,27 @@ uv run mypy app tests
 uv run pytest
 ```
 
-Live DeepSeek 集成测试需**显式选择**并配置 `DEEPSEEK_API_KEY`，从默认套件中被排除：
+Live DeepSeek integration tests require **explicit opt-in** with a configured `DEEPSEEK_API_KEY` and are excluded from the default suite:
 
 ```bash
 uv run pytest -m live tests/integration/test_live_deepseek.py
 ```
 
-Live 测试**不会打印** Key、请求 payload 或生成响应文本。
+Live tests **do not print** keys, request payloads, or generated response text.
 
 ---
 
-## 工程文档
+## Engineering Documentation
 
-| 文档 | 路径 | 说明 |
+| Document | Path | Description |
 |------|------|------|
-| 仓库规则 | `AGENTS.md` | 仓库级编码规范与约束 |
-| API 接口文档 | [`.trae/documents/WellnessApp_AI_API.md`](.trae/documents/WellnessApp_AI_API.md) | 完整 API 规范、请求/响应、校验规则 |
-| 架构文档 | [`.trae/documents/WellnessApp_AI_Architecture.md`](.trae/documents/WellnessApp_AI_Architecture.md) | 分层架构设计、模块职责、数据流 |
-| 产品需求 | [`.trae/documents/WellnessApp_AI_PRD.md`](.trae/documents/WellnessApp_AI_PRD.md) | AI 模块产品范围与需求 |
-| 开发日志 | [`.trae/documents/WellnessApp_AI_Development_Log.md`](.trae/documents/WellnessApp_AI_Development_Log.md) | 开发计划与变更记录 |
-| 架构设计 Spec | `docs/superpowers/specs/` | 设计阶段技术规格 |
-| 实现计划 | `docs/superpowers/plans/` | 12 个 Task 的红-绿-重构步骤 |
+| Repository Rules | `AGENTS.md` | Repository-level coding standards and constraints |
+| API Documentation | [`.trae/documents/WellnessApp_AI_API.md`](.trae/documents/WellnessApp_AI_API.md) | Full API specification, requests/responses, validation rules |
+| Architecture | [`.trae/documents/WellnessApp_AI_Architecture.md`](.trae/documents/WellnessApp_AI_Architecture.md) | Layered architecture design, module responsibilities, data flows |
+| Product Requirements | [`.trae/documents/WellnessApp_AI_PRD.md`](.trae/documents/WellnessApp_AI_PRD.md) | AI module product scope and requirements |
+| Development Log | [`.trae/documents/WellnessApp_AI_Development_Log.md`](.trae/documents/WellnessApp_AI_Development_Log.md) | Development plan and change records |
+| Architecture Spec | `docs/superpowers/specs/` | Design-phase technical specifications |
+| Implementation Plan | `docs/superpowers/plans/` | Red-green-refactor steps for 12 tasks |
 
 ---
 
