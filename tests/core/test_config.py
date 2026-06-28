@@ -17,6 +17,9 @@ def test_settings_use_safe_defaults_without_api_key() -> None:
     assert settings.deepseek_agent_model == "deepseek-v4-pro"
     assert settings.deepseek_timeout_seconds == 30.0
     assert settings.deepseek_max_retries == 2
+    assert settings.embed_model == "all-MiniLM-L6-v2"
+    assert settings.chat_model == "llama3.1"
+    assert settings.ollama_host == "http://localhost:11434"
 
 
 def test_settings_accept_environment_aliases() -> None:

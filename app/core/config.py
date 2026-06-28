@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     deepseek_base_url: str = Field(
         "https://api.deepseek.com", validation_alias="DEEPSEEK_BASE_URL"
     )
+    embed_model: str = Field("all-MiniLM-L6-v2", validation_alias="EMBED_MODEL")
+    chat_model: str = Field("llama3.1", validation_alias="CHAT_MODEL")
+    ollama_host: str = Field("http://localhost:11434", validation_alias="OLLAMA_HOST")
     deepseek_chat_model: str = Field(
         "deepseek-v4-flash", validation_alias="DEEPSEEK_CHAT_MODEL"
     )

@@ -5,8 +5,10 @@ description = "Private AI service for the SimpleWell wellness application"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115,<1",
+  "ollama>=0.4,<1",
   "openai>=1.68,<2",
   "pydantic-settings>=2.8,<3",
+  "sentence-transformers>=3,<4",
   "tenacity>=9,<10",
   "uvicorn[standard]>=0.34,<1",
 ]

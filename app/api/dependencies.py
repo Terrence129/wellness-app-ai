@@ -4,8 +4,10 @@ from fastapi import Depends, Request
 
 from app.core.config import Settings
 from app.providers.base import LLMProvider
-from app.providers.deepseek import DeepSeekProvider
+from app.providers.ollama import OllamaProvider
 from app.services.advice import AdviceService
+
+DeepSeekProvider = OllamaProvider
 from app.services.chat import ChatService
 from app.services.safety import SafetyPolicy
 
