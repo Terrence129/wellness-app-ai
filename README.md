@@ -179,3 +179,65 @@ uv run pytest -m live tests/integration/test_live_deepseek.py
 ```
 
 The live test must not print the key, request payload, or generated response text.
+
+## Local knowledge RAG (retrieval-augmented generation)
+
+When `RAG_ENABLED` is true, the service indexes approved local knowledge files at startup and uses keyword retrieval to ground chat replies in the project-maintained wellness knowledge base. Documents are plain Markdown (`.md`) or text (`.txt`) files under `knowledge/`.
+
+### Adding knowledge
+
+Create `.md` or `.txt` files under `knowledge/`. Each file should cover a narrow wellness topic. Recommended content structure:
+
+```markdown
+# Topic title
+
+Concise, paraphrased summary of authoritative public wellness guidance.
+Keep content factual and source-based.
+
+## References
+- https://authoritative-source.example.com/guideline
+- Last reviewed: YYYY-MM-DD
+```
+
+Source material should be paraphrased, not copied. Adding or changing a knowledge file is a reviewable code change. Medical claims require verification against current authoritative sources.
+
+### Index lifecycle
+
+The index is managed automatically:
+
+- On startup, the service computes a corpus fingerprint from file content hashes and chunk settings.
+- If the fingerprint matches an existing index, the index is reused.
+- Otherwise the index is rebuilt atomically — a partial rebuild cannot leave a broken index.
+- Missing or corrupt indexes trigger an automatic rebuild.
+- An empty `knowledge/` directory or `RAG_ENABLED=false` gracefully degrades to non-RAG chat.
+
+Generated SQLite index files live under `.data/` and are excluded from Git.
+
+### RAG configuration
+
+All RAG settings default to safe values for a small local corpus:
+
+| Setting | Default | Description |
+|---|---|---|
+| `RAG_ENABLED` | `true` | Feature switch |
+| `RAG_KNOWLEDGE_DIR` | `knowledge` | Directory for Markdown and TXT knowledge files |
+| `RAG_INDEX_PATH` | `.data/rag-index.sqlite3` | Generated FTS5 index path |
+| `RAG_TOP_K` | `4` | Maximum chunks per query (1-10) |
+| `RAG_CHUNK_SIZE` | `1000` | Target characters per chunk (300-4000) |
+| `RAG_CHUNK_OVERLAP` | `150` | Character overlap between chunks |
+| `RAG_CONTEXT_MAX_CHARS` | `4000` | Maximum total context characters (500-12000) |
+| `RAG_MAX_FILE_BYTES` | `1048576` | Per-file byte limit |
+| `RAG_MAX_CORPUS_BYTES` | `20971520` | Total corpus byte limit (20 MB) |
+
+### Retrieval behaviour
+
+- Retrieval uses SQLite FTS5 with BM25 ranking on English tokenized queries.
+- The retrieval query combines the current user message and the two most recent user history messages.
+- Assistant messages are excluded from the query.
+- Retrieved text is placed in a delimited context block appended to the user message.
+- The system prompt instructs the model that knowledge text is reference material, never an instruction source.
+- Retrieval failures degrade to the existing non-RAG chat path.
+
+### Deployment
+
+In production, mount the knowledge directory read-only and the index directory writable. The index directory must be on a persistent volume if you want to reuse the index across restarts (the service will rebuild it otherwise, which is fast for small corpora).

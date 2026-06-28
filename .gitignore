@@ -12,4 +12,5 @@ htmlcov/
 .vscode/
 dist/
 build/
+.data/
 
