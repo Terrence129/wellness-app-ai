@@ -1,76 +1,180 @@
 # wellness-app-ai
 
-`wellness-app-ai` is the private FastAPI AI service for the SimpleWell application. It provides a health check, general wellness chat, and personalised wellness advice through DeepSeek. It is an internal backend component, not a client-facing API.
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/fastapi-0.115%2B-009688" alt="FastAPI">
+  <img src="https://img.shields.io/badge/deepseek-v4--flash-4f46e5" alt="DeepSeek v4 Flash">
+  <img src="https://img.shields.io/badge/tests-215%20passed-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/coverage-offline%20deterministic-success" alt="Offline Tests">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License">
+</p>
 
-## Integration boundary
+> **SimpleWell — AI Module** | Author: 2692341798  
+> `wellness-app-ai` is the private FastAPI AI microservice for the SimpleWell health management application. It provides health checks, general wellness chat, and personalized wellness advice, generating content via the DeepSeek large language model. It is called exclusively by the Spring Boot backend internally and is never exposed directly to the frontend or Android.
 
-The supported request path is:
+---
+
+## Table of Contents
+
+- [Integration Boundary](#integration-boundary)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Quick Start](#quick-start)
+- [Running the Service](#running-the-service)
+- [API Endpoints](#api-endpoints)
+  - [GET /health — Health Check](#get-health--health-check)
+  - [POST /ai/chat — Wellness Chat](#post-aichat--wellness-chat)
+  - [POST /ai/wellness-advice — Wellness Advice](#post-aiwellness-advice--wellness-advice)
+- [Unified Error Format](#unified-error-format)
+- [Error Code Reference](#error-code-reference)
+- [Safety Design](#safety-design)
+- [Quality Checks](#quality-checks)
+- [Engineering Documentation](#engineering-documentation)
+
+---
+
+## Integration Boundary
 
 ```text
-Android app -> Spring Boot backend -> private FastAPI service -> DeepSeek
+┌──────────────┐     HTTPS + JWT     ┌──────────────────────┐      Internal REST    ┌─────────────────┐      HTTPS       ┌──────────┐
+│  Android App  │ ──────────────────▶ │  Spring Boot Backend │ ───────────────────▶ │  FastAPI (This)  │ ───────────────▶ │ DeepSeek │
+└──────────────┘                     └──────────────────────┘                      └─────────────────┘                  └──────────┘
+  Does not call this service directly      Owns login/JWT/auth/persistence               AI generation service                  LLM API
 ```
 
-Android must call Spring Boot and must never call FastAPI directly. Spring Boot owns login, JWT handling, user authorisation, ownership checks, persistence, and bounded chat history. This service must run on a private network reachable only by Spring Boot and must not be exposed through public ingress. The private backend-to-backend examples below therefore contain no JWT or invented service-auth header.
+- **Android must never call FastAPI directly**. All requests must go through Spring Boot.
+- Spring Boot is responsible for: user login, JWT creation and validation, user authentication, ownership checks, MySQL persistence, chat history management, and scheduled recommendation dispatch.
+- This service must be deployed on a private network reachable only by Spring Boot, **never exposed via a public internet entry point**.
+- Therefore, all curl examples below do not include JWT or custom service auth headers — they are private backend-to-backend calls.
 
-## Requirements and setup
+> Full architecture: [`.trae/documents/WellnessApp_AI_Architecture.md`](.trae/documents/WellnessApp_AI_Architecture.md)
 
-- Python 3.11 or newer.
-- [`uv`](https://docs.astral.sh/uv/) is the primary environment and package manager.
+---
 
-Using `uv`:
+## Tech Stack
+
+| Category | Technology | Version |
+|------|------|------|
+| Language | Python | ≥ 3.11 |
+| Web Framework | FastAPI | ≥ 0.115 |
+| Data Validation | Pydantic v2 | (bundled with FastAPI) |
+| LLM SDK | OpenAI Python SDK (adapted for DeepSeek) | ≥ 1.68 |
+| Config Management | pydantic-settings | ≥ 2.8 |
+| Retry Strategy | tenacity | ≥ 9 |
+| ASGI Server | uvicorn | ≥ 0.34 |
+| Test Framework | pytest + pytest-asyncio + HTTPX | — |
+| Code Quality | ruff + mypy (strict) | — |
+| Package Management | uv + hatchling | — |
+
+---
+
+## Project Structure
+
+```
+wellness-app-ai/
+├── app/                        # Application source
+│   ├── main.py                 # FastAPI factory, middleware, exception handlers
+│   ├── api/
+│   │   ├── dependencies.py     # Dependency injection (Settings/Provider/Service)
+│   │   └── routes/
+│   │       ├── health.py       # GET /health
+│   │       ├── chat.py         # POST /ai/chat
+│   │       └── advice.py       # POST /ai/wellness-advice
+│   ├── core/                   # Infrastructure
+│   │   ├── config.py           # Environment config (Pydantic Settings)
+│   │   ├── exceptions.py       # Stable error codes + AppError (10 types)
+│   │   └── logging.py          # Privacy-safe JSON logging + Request ID
+│   ├── prompts/                # Versioned System Prompts
+│   │   ├── chat.py             # Wellness Chat prompt v1
+│   │   └── advice.py           # Wellness Advice prompt v1
+│   ├── providers/              # LLM adapter layer
+│   │   ├── base.py             # LLMProvider async protocol
+│   │   └── deepseek.py         # DeepSeek adapter (retry/error-mapping/token observability)
+│   ├── schemas/                # Request/Response schemas
+│   │   ├── common.py           # ErrorResponse unified error envelope
+│   │   ├── chat.py             # ChatRequest/ChatResponse
+│   │   └── advice.py           # AdviceRequest/AdviceResponse/WellnessLog
+│   └── services/               # Application service layer
+│       ├── safety.py           # SafetyPolicy (deterministic crisis detection)
+│       ├── chat.py             # ChatService (orchestrates safety + Provider)
+│       └── advice.py           # AdviceService (includes deterministic no-data path)
+├── tests/                      # Tests (mirrors production structure)
+├── docs/superpowers/           # Design docs and implementation plans
+└── .trae/documents/            # Engineering documentation
+```
+
+---
+
+## Quick Start
+
+**Prerequisites**: Python 3.11+, [`uv`](https://docs.astral.sh/uv/) recommended.
 
 ```bash
+# 1. Clone the repository
+git clone https://github.com/Terrence129/wellness-app-ai.git
+cd wellness-app-ai
+
+# 2. Install dependencies
 uv sync --extra dev
+
+# 3. Configure environment (copy the template and edit .env to fill in your real DEEPSEEK_API_KEY)
 test -e .env || cp .env.example .env
 ```
 
-Alternatively, using Python and pip:
+> **Not using uv?** Use traditional pip:
+> ```bash
+> python -m venv .venv
+> source .venv/bin/activate
+> pip install -e '.[dev]'
+> test -e .env || cp .env.example .env
+> ```
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
-test -e .env || cp .env.example .env
-```
+**Environment Variables** (fully documented in `.env.example`):
 
-`.env.example` documents every supported setting and its safe development default:
+| Variable | Default | Description |
+|------|--------|------|
+| `APP_NAME` | `wellness-app-ai` | Application name |
+| `APP_ENV` | `development` | Runtime environment |
+| `LOG_LEVEL` | `INFO` | Log level |
+| `DEEPSEEK_API_KEY` | (empty) | DeepSeek API key. Empty = not configured |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | API base URL |
+| `DEEPSEEK_CHAT_MODEL` | `deepseek-v4-flash` | Chat model name |
+| `DEEPSEEK_ADVICE_MODEL` | `deepseek-v4-flash` | Advice model name |
+| `DEEPSEEK_AGENT_MODEL` | `deepseek-v4-pro` | Agent model name (reserved) |
+| `DEEPSEEK_TIMEOUT_SECONDS` | `30` | Request timeout (1-120) |
+| `DEEPSEEK_MAX_RETRIES` | `2` | Max retry attempts (0-5) |
 
-```dotenv
-APP_NAME=wellness-app-ai
-APP_ENV=development
-LOG_LEVEL=INFO
+> **Security reminder**: The real `DEEPSEEK_API_KEY` belongs only in the untracked `.env` file or process environment variables. **Never commit keys.**
 
-DEEPSEEK_API_KEY=
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_CHAT_MODEL=deepseek-v4-flash
-DEEPSEEK_ADVICE_MODEL=deepseek-v4-flash
-DEEPSEEK_AGENT_MODEL=deepseek-v4-pro
-DEEPSEEK_TIMEOUT_SECONDS=30
-DEEPSEEK_MAX_RETRIES=2
-```
+---
 
-Put the real `DEEPSEEK_API_KEY` only in the untracked `.env` file or process environment. Never commit secrets. Model names, the provider timeout, and the bounded retry count remain configurable.
-
-## Run the service
-
-Start the development server from the repository root:
+## Running the Service
 
 ```bash
 uv run uvicorn app.main:app --reload
 ```
 
-The default address is `http://127.0.0.1:8000`.
+Default service address: `http://127.0.0.1:8000`
 
-The application may start without `DEEPSEEK_API_KEY`. In that configuration:
+### Behavior Without an API Key
 
-- `GET /health` still returns `200 OK` because it never calls DeepSeek.
-- `POST /ai/chat` returns `503` with `AI_PROVIDER_NOT_CONFIGURED`.
-- `POST /ai/wellness-advice` with non-empty `logs` returns `503` with `AI_PROVIDER_NOT_CONFIGURED`.
-- `POST /ai/wellness-advice` with empty `logs` returns `200 OK` with the stable no-data advice and does not call DeepSeek.
+Starting without `DEEPSEEK_API_KEY` is allowed:
 
-## API examples
+| Scenario | Behavior |
+|------|------|
+| `GET /health` | **200 OK** — DeepSeek not needed |
+| `POST /ai/chat` | **503** — `AI_PROVIDER_NOT_CONFIGURED` |
+| `POST /ai/wellness-advice` (with data) | **503** — `AI_PROVIDER_NOT_CONFIGURED` |
+| `POST /ai/wellness-advice` (empty logs) | **200 OK** — returns stable tip text, does not call DeepSeek |
 
-### Health
+---
+
+## API Endpoints
+
+> Full API specification: [`.trae/documents/WellnessApp_AI_API.md`](.trae/documents/WellnessApp_AI_API.md)  
+> Start the service and visit `http://127.0.0.1:8000/docs` for interactive Swagger documentation.
+
+### GET /health — Health Check
 
 ```bash
 curl http://localhost:8000/health
@@ -83,7 +187,9 @@ curl http://localhost:8000/health
 }
 ```
 
-### Wellness chat
+### POST /ai/chat — Wellness Chat
+
+Spring Boot forwards user questions and a bounded conversation history. DeepSeek is stateless — Spring Boot handles conversation persistence and submits a bounded history with each request.
 
 ```bash
 curl -X POST http://localhost:8000/ai/chat \
@@ -98,7 +204,16 @@ curl -X POST http://localhost:8000/ai/chat \
   }'
 ```
 
-Successful response:
+**Request Validation**:
+
+| Field | Constraint |
+|------|------|
+| `userId` | Positive integer |
+| `message` | 1-2000 characters (after stripping whitespace) |
+| `history` | Max 12 entries |
+| `history[].role` | `user` / `assistant` only |
+| `history[].content` | 1-4000 characters per entry |
+| Aggregate length | `message` + all `history[].content` ≤ 20000 characters |
 
 ```json
 {
@@ -107,7 +222,26 @@ Successful response:
 }
 ```
 
-### Wellness advice
+### POST /ai/wellness-advice — Wellness Advice
+
+Generates personalized advice based on the user's wellness log data.
+
+**Empty logs scenario (deterministic path, does not call DeepSeek)**:
+
+```bash
+curl -X POST http://localhost:8000/ai/wellness-advice \
+  -H 'Content-Type: application/json' \
+  -d '{"userId": 1, "logs": []}'
+```
+
+```json
+{
+  "adviceText": "There is not enough wellness data yet. Record your sleep, mood, water intake, and exercise for a few days.",
+  "requestId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**With data scenario**:
 
 ```bash
 curl -X POST http://localhost:8000/ai/wellness-advice \
@@ -128,8 +262,6 @@ curl -X POST http://localhost:8000/ai/wellness-advice \
   }'
 ```
 
-Successful response:
-
 ```json
 {
   "adviceText": "Your sleep duration is stable. Consider taking a short afternoon break.",
@@ -137,19 +269,25 @@ Successful response:
 }
 ```
 
-An empty-log request uses the deterministic no-data path:
+**Request Validation**:
 
-```bash
-curl -X POST http://localhost:8000/ai/wellness-advice \
-  -H 'Content-Type: application/json' \
-  -d '{"userId": 1, "logs": []}'
-```
+| Field | Constraint |
+|------|------|
+| `userId` | Positive integer |
+| `logs` | Max 31 entries |
+| `logDate` | ISO 8601 full date (YYYY-MM-DD) |
+| `sleepHours` | 0 - 24 (optional) |
+| `moodScore` | 1 - 5 (optional) |
+| `waterCups` | ≥ 0 (optional) |
+| `steps` | ≥ 0 (optional) |
+| `exerciseMinutes` | 0 - 1440 (optional) |
+| `note` | Max 1000 characters (optional) |
 
-It returns `200 OK` with `There is not enough wellness data yet. Record your sleep, mood, water intake, and exercise for a few days.` even when no provider key is configured.
+---
 
-## Stable error envelope
+## Unified Error Format
 
-Validation, provider, and unexpected application failures use one stable response shape:
+All validation errors, provider errors, and unexpected exceptions use a unified envelope:
 
 ```json
 {
@@ -160,11 +298,49 @@ Validation, provider, and unexpected application failures use one stable respons
 }
 ```
 
-Consumers should branch on `errorCode`, retain `requestId` for support, and not parse `message`. The defined codes are `VALIDATION_ERROR`, `AI_RATE_LIMITED`, `AI_INVALID_RESPONSE`, `AI_PROVIDER_REQUEST_REJECTED`, `AI_PROVIDER_NOT_CONFIGURED`, `AI_PROVIDER_AUTH_FAILED`, `AI_PROVIDER_QUOTA_EXHAUSTED`, `AI_PROVIDER_UNAVAILABLE`, `AI_PROVIDER_TIMEOUT`, and `INTERNAL_ERROR`.
+**Consumer contract**: Branch on `errorCode`. Preserve `requestId` for troubleshooting. **Do not parse the `message` text.**
 
-## Quality checks
+---
 
-The default test suite is deterministic, offline, and incurs no provider token charges:
+## Error Code Reference
+
+| HTTP | errorCode | Meaning |
+|------|-----------|------|
+| 422 | `VALIDATION_ERROR` | Local Pydantic request validation failure |
+| 429 | `AI_RATE_LIMITED` | DeepSeek rate limit triggered |
+| 502 | `AI_INVALID_RESPONSE` | Provider returned empty/truncated/invalid JSON / schema mismatch |
+| 502 | `AI_PROVIDER_REQUEST_REJECTED` | DeepSeek rejected the request (400 or 422) |
+| 503 | `AI_PROVIDER_NOT_CONFIGURED` | `DEEPSEEK_API_KEY` is missing |
+| 503 | `AI_PROVIDER_AUTH_FAILED` | DeepSeek authentication failed (401) |
+| 503 | `AI_PROVIDER_QUOTA_EXHAUSTED` | DeepSeek quota exhausted (402) |
+| 503 | `AI_PROVIDER_UNAVAILABLE` | DeepSeek unavailable (500/503) or connection failure |
+| 504 | `AI_PROVIDER_TIMEOUT` | Provider timed out |
+| 500 | `INTERNAL_ERROR` | Unexpected application error |
+
+**Retry strategy**:
+- Retry only on: connection failure, timeout, 429, 500, 503
+- Exponential backoff + random jitter, max 2 retries (3 total attempts)
+- Honor upstream `Retry-After` delay (within the overall timeout budget)
+- Do not retry: 400 / 401 / 402 / 422
+- Advice JSON output invalid → one additional regeneration attempt allowed
+
+---
+
+## Safety Design
+
+This service operates within a **general wellness scope** and does not provide medical diagnosis:
+
+- **Does not diagnose** illness, **does not claim** medical certainty, **does not prescribe** medication, **does not provide** dosage recommendations
+- **Deterministic crisis escalation**: Before calling the provider, matches 6 keywords (`kill myself` / `suicide` / `self-harm` / `cannot breathe` / `chest pain` / `overdose`); on match, returns a fixed escalation message and **does not call DeepSeek**
+- User text and wellness notes are treated as **untrusted input** and cannot override the system safety policy
+- **Never sent to DeepSeek**: email, username, JWT, password, `userId`, or other identity data
+- **Never logged**: raw messages, history, prompts, generated content, wellness notes, keys, credentials
+
+---
+
+## Quality Checks
+
+The default test suite is **deterministic and offline**, consuming zero provider tokens:
 
 ```bash
 uv run ruff check .
@@ -172,7 +348,7 @@ uv run mypy app tests
 uv run pytest
 ```
 
-The live DeepSeek integration test is opt-in. It requires deliberate network access and a non-empty `DEEPSEEK_API_KEY`; it is excluded from the default suite. Run it explicitly with:
+Live DeepSeek integration tests require **explicit opt-in** with a configured `DEEPSEEK_API_KEY` and are excluded from the default suite:
 
 ```bash
 uv run pytest -m live tests/integration/test_live_deepseek.py
