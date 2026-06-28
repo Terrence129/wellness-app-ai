@@ -90,16 +90,23 @@ class DeepSeekProvider:
             self._client = None
 
     async def generate_chat(
-        self, *, message: str, history: Sequence[HistoryItem]
+        self,
+        *,
+        message: str,
+        history: Sequence[HistoryItem],
+        knowledge_context: str = "",
     ) -> ChatProviderResult:
         """Generate and validate one wellness-chat response. Author: 2692341798."""
         self._require_configured()
         operation = self._new_operation()
-        messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}]
+        messages: list[dict[str, str]] = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}]
         messages.extend(
             {"role": item.role.value, "content": item.content} for item in history
         )
-        messages.append({"role": "user", "content": message})
+        user_message = message
+        if knowledge_context:
+            user_message = f"{message}\n\n{knowledge_context}"
+        messages.append({"role": "user", "content": user_message})
         response = await self._request(
             operation,
             model=self._settings.deepseek_chat_model,

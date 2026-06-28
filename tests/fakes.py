@@ -24,10 +24,20 @@ class FakeLLMProvider:
     advice_calls: list[dict[str, object]] = field(default_factory=list)
 
     async def generate_chat(
-        self, *, message: str, history: Sequence[HistoryItem]
+        self,
+        *,
+        message: str,
+        history: Sequence[HistoryItem],
+        knowledge_context: str = "",
     ) -> ChatProviderResult:
         """Record a chat call and return its configured result. Author: 2692341798."""
-        self.chat_calls.append({"message": message, "history": list(history)})
+        self.chat_calls.append(
+            {
+                "message": message,
+                "history": list(history),
+                "knowledge_context": knowledge_context,
+            }
+        )
         if self.error is not None:
             raise self.error
         return self.chat_result

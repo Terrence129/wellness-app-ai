@@ -10,7 +10,11 @@ class LLMProvider(Protocol):
     """Provider-independent asynchronous generation boundary. Author: 2692341798."""
 
     async def generate_chat(
-        self, *, message: str, history: Sequence[HistoryItem]
+        self,
+        *,
+        message: str,
+        history: Sequence[HistoryItem],
+        knowledge_context: str = "",
     ) -> ChatProviderResult:
         """Generate one wellness-chat reply. Author: 2692341798."""
         ...
