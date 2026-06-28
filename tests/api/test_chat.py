@@ -109,7 +109,9 @@ def test_chat_returns_exact_aliases_and_matching_request_id() -> None:
     assert response.status_code == 200
     assert response.headers["X-Request-ID"] == REQUEST_ID
     assert response.json() == {"reply": "Take a short walk.", "requestId": REQUEST_ID}
-    assert provider.chat_calls == [{"message": "How can I unwind?", "history": []}]
+    assert provider.chat_calls == [
+        {"message": "How can I unwind?", "history": [], "knowledge_context": ""}
+    ]
 
 
 def test_chat_crisis_short_circuits_provider() -> None:
@@ -198,7 +200,7 @@ def test_dependencies_lazily_construct_and_share_one_provider_per_app(
     resolved_settings = dependencies.get_settings(request)
     chat_provider = dependencies.get_provider(request, resolved_settings)
     advice_provider = dependencies.get_provider(request, resolved_settings)
-    chat_service = dependencies.get_chat_service(chat_provider)
+    chat_service = dependencies.get_chat_service(chat_provider, None)
     advice_service = dependencies.get_advice_service(advice_provider)
 
     assert resolved_settings is settings

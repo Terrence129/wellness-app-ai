@@ -21,7 +21,7 @@ def test_chat_prompt_locks_wellness_safety_and_prompt_injection_rules() -> None:
     """Keep the versioned chat policy explicit and testable. Author: 2692341798."""
     prompt = CHAT_SYSTEM_PROMPT.lower()
 
-    assert CHAT_PROMPT_VERSION == "wellness-chat-v1"
+    assert CHAT_PROMPT_VERSION == "wellness-chat-v2"
     assert "general wellness only" in prompt
     assert "diagnosis" in prompt
     assert "medical certainty" in prompt
@@ -103,6 +103,7 @@ async def test_generate_passes_only_stripped_message_and_history_to_provider() -
                 HistoryItem(role=HistoryRole.USER, content="Busy day"),
                 HistoryItem(role=HistoryRole.ASSISTANT, content="Take a pause"),
             ],
+            "knowledge_context": "",
         }
     ]
     assert "user_id" not in provider.chat_calls[0]
