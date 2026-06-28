@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Awaitable, Callable
 from time import perf_counter
 
@@ -20,6 +21,8 @@ from app.core.logging import (
     reset_request_id,
     set_request_id,
 )
+from app.rag.index_manager import IndexManager
+from app.rag.retriever import FTS5Retriever, NoOpRetriever
 from app.schemas.common import ErrorResponse
 
 
@@ -37,6 +40,36 @@ def _error_response(error: AppError) -> JSONResponse:
     )
 
 
+def _init_rag(settings: Settings) -> tuple[NoOpRetriever | FTS5Retriever, str]:
+    if not settings.rag_enabled:
+        return NoOpRetriever(), "disabled"
+
+    try:
+        manager = IndexManager(settings)
+        result = manager.ensure_index()
+
+        if result.chunk_count == 0:
+            return NoOpRetriever(), "empty"
+
+        log_event(
+            logging.getLogger("wellness_app"),
+            "rag_init",
+            state="ready",
+            elapsed_ms=round(result.elapsed_ms, 2),
+            file_count=result.file_count,
+            chunk_count=result.chunk_count,
+            reused=str(result.reused).lower(),
+        )
+        return FTS5Retriever(settings), "ready"
+    except Exception:
+        log_event(
+            logging.getLogger("wellness_app"),
+            "rag_init",
+            state="degraded",
+        )
+        return NoOpRetriever(), "degraded"
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Create the FastAPI service with shared infrastructure and routes.
 
@@ -46,6 +79,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application = FastAPI(title=resolved_settings.app_name)
     application.state.settings = resolved_settings
     logger = configure_logging(resolved_settings.log_level)
+
+    application.state.rag_retriever, _rag_state = _init_rag(resolved_settings)
 
     @application.middleware("http")
     async def request_context(
