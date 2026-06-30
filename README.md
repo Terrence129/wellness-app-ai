@@ -1,3 +1,6 @@
+Docker:
+`docker compose up --build`
+
 # wellness-app-ai
 
 <p align="center">
