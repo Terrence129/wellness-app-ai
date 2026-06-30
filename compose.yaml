@@ -1,0 +1,15 @@
+services:
+  wellness-app-ai:
+    build:
+      context: .
+    image: wellness-app-ai:latest
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - rag-data:/app/.data
+    restart: unless-stopped
+
+volumes:
+  rag-data:
