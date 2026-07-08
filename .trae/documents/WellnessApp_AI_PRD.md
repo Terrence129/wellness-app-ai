@@ -1,3 +1,8 @@
+<!--
+Author: Huang Qijun
+Email: 2692341798@qq.com
+-->
+
 # Wellness App AI — Product Requirements Document (PRD)
 
 > **Version**: v0.1.0 | **Author**: 2692341798 | **Last Updated**: 2026-06-27  

@@ -1,3 +1,6 @@
+# Author: Huang Qijun
+# Email: 2692341798@qq.com
+
 
 from app.rag.chunker import TextChunker
 from app.rag.document_loader import KnowledgeDocument

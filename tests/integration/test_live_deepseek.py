@@ -1,3 +1,6 @@
+# Author: Huang Qijun
+# Email: 2692341798@qq.com
+
 import os
 from datetime import date
 

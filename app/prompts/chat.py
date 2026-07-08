@@ -1,3 +1,6 @@
+# Author: Huang Qijun
+# Email: 2692341798@qq.com
+
 CHAT_PROMPT_VERSION = "wellness-chat-v2"
 
 CHAT_SYSTEM_PROMPT = """

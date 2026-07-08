@@ -1,3 +1,6 @@
+# Author: Huang Qijun
+# Email: 2692341798@qq.com
+
 
 from app.core.exceptions import AppError
 from app.prompts.chat import format_rag_context

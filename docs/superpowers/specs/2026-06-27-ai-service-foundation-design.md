@@ -1,3 +1,8 @@
+<!--
+Author: Huang Qijun
+Email: 2692341798@qq.com
+-->
+
 # Wellness App AI Service Foundation Design
 
 - Date: 2026-06-27

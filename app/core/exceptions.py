@@ -1,3 +1,6 @@
+# Author: Huang Qijun
+# Email: 2692341798@qq.com
+
 from dataclasses import dataclass
 from enum import StrEnum
 from types import MappingProxyType
