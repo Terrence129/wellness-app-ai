@@ -1,3 +1,8 @@
+<!--
+Author: Huang Qijun
+Email: 2692341798@qq.com
+-->
+
 # Knowledge base
 
 This directory contains project-maintained English wellness knowledge files for the local RAG feature.

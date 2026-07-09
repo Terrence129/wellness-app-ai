@@ -1,3 +1,8 @@
+<!--
+Author: Huang Qijun
+Email: 2692341798@qq.com
+-->
+
 # Repository instructions
 
 These instructions apply to the entire `wellness-app-ai` repository. System, developer, and explicit user instructions take precedence over this file. More specific nested `AGENTS.md` files take precedence within their directory.

@@ -1,3 +1,6 @@
+# Author: Huang Qijun
+# Email: 2692341798@qq.com
+
 from typing import Any, Self
 
 from pydantic import Field, field_validator, model_validator

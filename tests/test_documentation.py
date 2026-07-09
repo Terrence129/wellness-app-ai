@@ -1,3 +1,6 @@
+# Author: Huang Qijun
+# Email: 2692341798@qq.com
+
 """Documentation contract tests for repository operators and contributors."""
 
 import json

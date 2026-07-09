@@ -1,3 +1,6 @@
+# Author: Huang Qijun
+# Email: 2692341798@qq.com
+
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]

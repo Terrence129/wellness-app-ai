@@ -1,3 +1,6 @@
+# Author: Huang Qijun
+# Email: 2692341798@qq.com
+
 ADVICE_PROMPT_VERSION = "wellness-advice-v1"
 
 ADVICE_SYSTEM_PROMPT = """

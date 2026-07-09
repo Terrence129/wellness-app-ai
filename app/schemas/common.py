@@ -1,3 +1,6 @@
+# Author: Huang Qijun
+# Email: 2692341798@qq.com
+
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field

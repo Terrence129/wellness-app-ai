@@ -1,3 +1,8 @@
+<!--
+Author: Huang Qijun
+Email: 2692341798@qq.com
+-->
+
 # Local Wellness Knowledge RAG Design
 
 - Date: 2026-06-28

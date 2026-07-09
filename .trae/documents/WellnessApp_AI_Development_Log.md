@@ -1,3 +1,8 @@
+<!--
+Author: Huang Qijun
+Email: 2692341798@qq.com
+-->
+
 # Wellness App AI — Development Log
 
 > **Author**: 2692341798 | **Repository**: `wellness-app-ai`  
