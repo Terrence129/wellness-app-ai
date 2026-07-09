@@ -3,9 +3,6 @@ Author: Huang Qijun
 Email: 2692341798@qq.com
 -->
 
-Docker:
-`docker compose up --build`
-
 # wellness-app-ai
 
 <p align="center">
@@ -158,11 +155,40 @@ test -e .env || cp .env.example .env
 
 ## Running the Service
 
+Local development:
+
 ```bash
 uv run uvicorn app.main:app --reload
 ```
 
 Default service address: `http://127.0.0.1:8000`
+
+Docker:
+
+```bash
+docker compose up --build
+```
+
+The production container command binds Uvicorn to `0.0.0.0:8000` so the service is reachable from the container network:
+
+```dockerfile
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+Production environment:
+
+```env
+APP_ENV=production
+LOG_LEVEL=INFO
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_CHAT_MODEL=deepseek-v4-flash
+DEEPSEEK_ADVICE_MODEL=deepseek-v4-flash
+DEEPSEEK_TIMEOUT_SECONDS=30
+DEEPSEEK_MAX_RETRIES=2
+DEEPSEEK_API_KEY=<from Secrets Manager>
+```
+
+Do not bake `DEEPSEEK_API_KEY` into the image. Inject it from the deployment runtime, for example AWS Secrets Manager.
 
 ### Behavior Without an API Key
 
@@ -425,3 +451,21 @@ All RAG settings default to safe values for a small local corpus:
 ### Deployment
 
 In production, mount the knowledge directory read-only and the index directory writable. The index directory must be on a persistent volume if you want to reuse the index across restarts (the service will rebuild it otherwise, which is fast for small corpora).
+
+For the first deployment, the existing Docker image keeps this simple:
+
+- `knowledge/` is copied into the image as `/app/knowledge`.
+- `.data/` is generated at runtime and is excluded from Git.
+- `compose.yaml` mounts a writable Docker volume at `/app/.data`.
+
+For a more production-like AWS deployment, mount EFS paths and override the RAG locations:
+
+```env
+RAG_KNOWLEDGE_DIR=/knowledge
+RAG_INDEX_PATH=/.data/rag-index.sqlite3
+```
+
+Recommended mounts:
+
+- `/knowledge` -> read-only EFS
+- `/.data` -> writable EFS
